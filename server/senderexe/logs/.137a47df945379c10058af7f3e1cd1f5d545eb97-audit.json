@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 7
+    },
+    "auditLog": "/Users/david/Downloads/sendertest-main/server/senderexe/logs/.137a47df945379c10058af7f3e1cd1f5d545eb97-audit.json",
+    "files": [
+        {
+            "date": 1743468120629,
+            "name": "/Users/david/Downloads/sendertest-main/server/senderexe/logs/error-2025-03-31.log",
+            "hash": "215a645acd368bface1343b85aefb07b20fd7406286182c42e398b0208202aaf"
+        }
+    ],
+    "hashType": "sha256"
+}
