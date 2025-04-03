@@ -10,7 +10,7 @@ import { validateRotationRequirements, validateSmtpConfig, validateEmailRequest 
 import { errorHandler } from './utils/errorUtils.js';
 import { replacePlaceholders } from './utils/placeholderUtils.js';
 import { rotateSmtp } from './utils/rotationUtils.js';
-import { configManager } from './utils/configmanager.js';
+import { configManager } from './utils/configManager.js';
 import { validateEmailTemplate } from './utils/validation.js';
 import { encryptCredentials, decryptCredentials } from './utils/encryption.js';
 

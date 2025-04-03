@@ -2,6 +2,8 @@
  * Placeholder Utilities
  * Handles replacement of placeholders in email templates
  */
+import randomstring from 'randomstring';
+import { Buffer } from 'buffer';
 
 /**
  * Replaces placeholders in a template with actual values
@@ -13,22 +15,22 @@ export const replacePlaceholders = (template, data) => {
   if (!template || typeof template !== 'string') {
     return '';
   }
-  
+
   try {
     const email = data.email || '';
     const [emailUsername, domain] = email.split('@');
     const domainName = domain?.split('.')[0] || 'Unknown';
     const toBase64 = (str) => Buffer.from(str).toString('base64');
     const randomDate = new Date(Date.now() - Math.random() * 10000000000).toISOString();
-    
+
     let result = template;
-    
+
     // Replace standard placeholders in the format {{key}}
     Object.entries(data).forEach(([key, value]) => {
       const placeholder = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
       result = result.replace(placeholder, value || '');
     });
-    
+
     // Replace special placeholders
     return result
       .replace(/GIRLUSER/g, emailUsername || '')
@@ -57,15 +59,15 @@ export const extractPlaceholders = (template) => {
   if (!template || typeof template !== 'string') {
     return [];
   }
-  
+
   const placeholderRegex = /{{(.*?)}}/g;
   const placeholders = [];
   let match;
-  
+
   while ((match = placeholderRegex.exec(template)) !== null) {
     placeholders.push(match[1].trim());
   }
-  
+
   // Return unique placeholders
   return [...new Set(placeholders)];
 };

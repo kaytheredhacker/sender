@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/SMTPConfig.css';
+import { FaPlus, FaEdit, FaTrash, FaCheck, FaQuestion } from 'react-icons/fa';
 
-const SMTPConfig = () => {
+const SMTPConfig = ({ onConfigSave }) => {
   const [configs, setConfigs] = useState([]);
   const [error, setError] = useState(null);
   const [newConfig, setNewConfig] = useState({
@@ -10,9 +11,13 @@ const SMTPConfig = () => {
     port: '',
     username: '',
     password: '',
-    secure: false
+    secure: false,
+    status: 'Not Tested' // New status field
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false); // Control form visibility
+  const [editMode, setEditMode] = useState(false); // Track if we're editing
+  const [editingConfigName, setEditingConfigName] = useState(null); // Track which config is being edited
 
   const loadConfigs = async () => {
     setIsLoading(true);
@@ -20,6 +25,10 @@ const SMTPConfig = () => {
       const result = await window.electronAPI.getSmtpConfigs();
       if (result.success) {
         setConfigs(result.configs);
+        // Pass the configs to the parent component
+        if (onConfigSave && typeof onConfigSave === 'function') {
+          onConfigSave(result.configs);
+        }
         setError(null);
       } else {
         setError(result.message);
@@ -45,25 +54,67 @@ const SMTPConfig = () => {
     setError(null);
 
     try {
-      const result = await window.electronAPI.saveSmtpConfig(newConfig);
+      // Prepare the config to save
+      const configToSave = {
+        ...newConfig,
+        status: 'Not Tested' // Always set status to Not Tested when saving
+      };
+
+      // If we're in edit mode, we need to delete the old config first
+      if (editMode && editingConfigName) {
+        await window.electronAPI.deleteSmtpConfig(editingConfigName);
+      }
+
+      const result = await window.electronAPI.saveSmtpConfig(configToSave);
       if (result.success) {
-        await loadConfigs();
+        // Load the updated configs
+        const configsResult = await window.electronAPI.getSmtpConfigs();
+        if (configsResult.success) {
+          setConfigs(configsResult.configs);
+          // Pass the updated configs to the parent component
+          if (onConfigSave && typeof onConfigSave === 'function') {
+            onConfigSave(configsResult.configs);
+          }
+        }
+
+        // Reset the form
         setNewConfig({
           name: '',
           host: '',
           port: '',
           username: '',
           password: '',
-          secure: false
+          secure: false,
+          status: 'Not Tested'
         });
+        // Hide the form after successful save
+        setShowForm(false);
+        setEditMode(false);
+        setEditingConfigName(null);
       } else {
         setError(result.message || 'Failed to save configuration');
       }
     } catch (err) {
-      setError('Failed to save SMTP configuration');
+      setError('Failed to save SMTP configuration: ' + err.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleEditConfig = (config) => {
+    // Set the form to edit mode
+    setEditMode(true);
+    setEditingConfigName(config.name);
+
+    // Populate the form with the config data
+    setNewConfig({
+      ...config,
+      // Don't show the actual password, but require it to be re-entered
+      password: ''
+    });
+
+    // Show the form
+    setShowForm(true);
   };
 
   const handleDeleteConfig = async (name) => {
@@ -75,7 +126,15 @@ const SMTPConfig = () => {
     try {
       const result = await window.electronAPI.deleteSmtpConfig(name);
       if (result.success) {
-        await loadConfigs();
+        // Load the updated configs
+        const configsResult = await window.electronAPI.getSmtpConfigs();
+        if (configsResult.success) {
+          setConfigs(configsResult.configs);
+          // Pass the updated configs to the parent component
+          if (onConfigSave && typeof onConfigSave === 'function') {
+            onConfigSave(configsResult.configs);
+          }
+        }
       } else {
         setError(result.message || 'Failed to delete configuration');
       }
@@ -86,20 +145,59 @@ const SMTPConfig = () => {
     }
   };
 
+  // We're keeping this function for manual testing, but it won't be automatically called
   const handleTestConfig = async (config) => {
     setIsLoading(true);
     try {
       const result = await window.electronAPI.testSmtpConfig(config);
       if (result.success) {
+        // Update the config status to Verified
+        const updatedConfigs = configs.map(c => {
+          if (c.name === config.name) {
+            return { ...c, status: 'Verified' };
+          }
+          return c;
+        });
+        setConfigs(updatedConfigs);
+
+        // Save the updated status to the store
+        const updatedConfig = { ...config, status: 'Verified' };
+        await window.electronAPI.saveSmtpConfig(updatedConfig);
+
+        // Load the updated configs to pass to the parent component
+        const configsResult = await window.electronAPI.getSmtpConfigs();
+        if (configsResult.success && onConfigSave && typeof onConfigSave === 'function') {
+          onConfigSave(configsResult.configs);
+        }
+
         alert('SMTP configuration test successful!');
       } else {
-        setError(result.message || 'SMTP test failed');
+        setError(`SMTP test failed: ${result.message}`);
       }
     } catch (err) {
-      setError('Failed to test SMTP configuration');
+      setError('Failed to test SMTP configuration: ' + err.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Function to toggle the form visibility
+  const toggleForm = () => {
+    if (showForm) {
+      // If we're hiding the form, reset it
+      setNewConfig({
+        name: '',
+        host: '',
+        port: '',
+        username: '',
+        password: '',
+        secure: false,
+        status: 'Not Tested'
+      });
+      setEditMode(false);
+      setEditingConfigName(null);
+    }
+    setShowForm(!showForm);
   };
 
   useEffect(() => {
@@ -107,120 +205,166 @@ const SMTPConfig = () => {
   }, []);
 
   return (
-    <div className="smtp-config">
-      <h2>SMTP Configurations</h2>
-      
+    <div className="config-container">
       {error && (
         <div className="error-message">
           {error}
-          <button onClick={() => setError(null)}>✕</button>
+          <button onClick={() => setError(null)} className="close-btn">✕</button>
         </div>
       )}
 
-      <form onSubmit={handleSaveConfig} className="config-form">
-        <div className="form-group">
-          <label htmlFor="name">Configuration Name:</label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={newConfig.name}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="host">SMTP Host:</label>
-          <input
-            type="text"
-            id="host"
-            name="host"
-            value={newConfig.host}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="port">Port:</label>
-          <input
-            type="number"
-            id="port"
-            name="port"
-            value={newConfig.port}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="username">Username:</label>
-          <input
-            type="text"
-            id="username"
-            name="username"
-            value={newConfig.username}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="password">Password:</label>
-          <input
-            type="password"
-            id="password"
-            name="password"
-            value={newConfig.password}
-            onChange={handleInputChange}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label>
-            <input
-              type="checkbox"
-              name="secure"
-              checked={newConfig.secure}
-              onChange={handleInputChange}
-            />
-            Use Secure Connection (SSL/TLS)
-          </label>
-        </div>
-
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? 'Saving...' : 'Save Configuration'}
+      <div className="saved-configs-header">
+        <h4>SMTP Configurations</h4>
+        <button
+          onClick={toggleForm}
+          className={`add-smtp-button ${showForm ? 'active' : ''}`}
+          title={showForm ? 'Cancel' : 'Add New SMTP Configuration'}
+        >
+          {showForm ? '✕ Cancel' : <><FaPlus /> Add SMTP</>}
         </button>
-      </form>
+      </div>
 
-      <div className="configs-list">
-        <h3>Saved Configurations</h3>
-        {configs.map((config) => (
-          <div key={config.name} className="config-item">
-            <div className="config-details">
-              <h4>{config.name}</h4>
-              <p>{config.host}:{config.port}</p>
-              <p>Username: {config.username}</p>
+      {showForm && (
+        <div className="config-form-container">
+          <form onSubmit={handleSaveConfig} className="config-form">
+            <div className="form-group">
+              <label htmlFor="name">Configuration Name</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={newConfig.name}
+                onChange={handleInputChange}
+                placeholder="My SMTP Config"
+                required
+                readOnly={editMode} // Make name field read-only in edit mode
+              />
             </div>
-            <div className="config-actions">
-              <button
-                onClick={() => handleTestConfig(config)}
-                disabled={isLoading}
-              >
-                Test
+
+            <div className="form-group">
+              <label htmlFor="host">SMTP Host</label>
+              <input
+                type="text"
+                id="host"
+                name="host"
+                value={newConfig.host}
+                onChange={handleInputChange}
+                placeholder="smtp.example.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="port">Port</label>
+              <input
+                type="number"
+                id="port"
+                name="port"
+                value={newConfig.port}
+                onChange={handleInputChange}
+                placeholder="587"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="username">Username</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={newConfig.username}
+                onChange={handleInputChange}
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={newConfig.password}
+                onChange={handleInputChange}
+                placeholder={editMode ? "Enter new password" : "••••••••"}
+                required
+              />
+            </div>
+
+            <div className="form-group checkbox">
+              <input
+                type="checkbox"
+                id="secure"
+                name="secure"
+                checked={newConfig.secure}
+                onChange={handleInputChange}
+              />
+              <label htmlFor="secure">Use Secure Connection (SSL/TLS)</label>
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="save-button" disabled={isLoading}>
+                {isLoading ? 'SAVING...' : (editMode ? 'UPDATE CONFIGURATION' : 'SAVE CONFIGURATION')}
               </button>
-              <button
-                onClick={() => handleDeleteConfig(config.name)}
-                disabled={isLoading}
-                className="delete-btn"
-              >
-                Delete
+              <button type="button" className="cancel-button" onClick={toggleForm}>
+                CANCEL
               </button>
             </div>
+          </form>
+        </div>
+      )}
+
+      <div className="saved-configs">
+        {configs.length === 0 ? (
+          <div className="no-configs">No SMTP configurations saved yet</div>
+        ) : (
+          <div className="configs-list">
+            {configs.map((config) => (
+              <div key={config.name} className="config-item">
+                <div className="config-status">
+                  {config.status === 'Verified' ? (
+                    <span className="status verified" title="Verified"><FaCheck /></span>
+                  ) : (
+                    <span className="status not-tested" title="Not Tested"><FaQuestion /></span>
+                  )}
+                </div>
+                <div className="config-details">
+                  <span className="config-name">{config.name}</span>
+                  <span className="config-host">{config.host}:{config.port}</span>
+                  <span className="config-user">{config.username}</span>
+                </div>
+                <div className="config-actions">
+                  <button
+                    onClick={() => handleEditConfig(config)}
+                    disabled={isLoading}
+                    className="edit-button"
+                    title="Edit Configuration"
+                  >
+                    <FaEdit /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleTestConfig(config)}
+                    disabled={isLoading}
+                    className="test-button"
+                    title="Test Connection"
+                  >
+                    Test
+                  </button>
+                  <button
+                    onClick={() => handleDeleteConfig(config.name)}
+                    disabled={isLoading}
+                    className="delete-btn"
+                    title="Delete Configuration"
+                  >
+                    <FaTrash />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

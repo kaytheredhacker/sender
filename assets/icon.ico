@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="256" height="256" version="1.1" viewBox="0 0 67.733 67.733" xmlns="http://www.w3.org/2000/svg">
- <g fill="#2196f3">
-  <path d="m33.867 8.4667-29.633 16.933v16.933l29.633 16.933 29.633-16.933v-16.933zm0 5.6444 21.167 12.7v11.289l-21.167 12.7-21.167-12.7v-11.289z" style="paint-order:fill markers stroke"/>
-  <path d="m33.867 19.756-16.933 8.4667 16.933 8.4667 16.933-8.4667z" style="paint-order:fill markers stroke"/>
- </g>
-</svg>

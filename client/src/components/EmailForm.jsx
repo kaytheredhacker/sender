@@ -16,9 +16,13 @@ const EmailForm = () => {
     const [error, setError] = useState(null);
     const [errors, setErrors] = useState([]);
 
-    const handleConfigSave = (configs) => {
-        setSmtpConfigs(configs);
-        setError(null);
+    const handleConfigSave = async (configs) => {
+        try {
+            setSmtpConfigs(Array.isArray(configs) ? configs : [configs]);
+            setError(null);
+        } catch (err) {
+            setError('Failed to save SMTP configuration');
+        }
     };
 
     const handleSendEmails = async () => {
@@ -64,22 +68,31 @@ const EmailForm = () => {
 
     return (
         <div className="email-form">
-            <h2>Tech-Girl-Nerd V2</h2>
-            
-            <SMTPConfig onConfigSave={handleConfigSave} />
-            
-            <FileUpload
-                onRecipientsChange={setRecipients}
-                onNamesChange={setNames}
-                onSubjectsChange={setSubjects}
-            />
-            
-            <TemplateEditor
-                onTemplateChange={(template) => setTemplates([...templates, template])}
-            />
-            
+            <h2>Email Campaign Manager</h2>
+
+            <div className="smtp-config">
+                <h3>SMTP Configuration</h3>
+                <SMTPConfig onConfigSave={handleConfigSave} />
+            </div>
+
+            <div className="file-upload">
+                <h3>Email Lists</h3>
+                <FileUpload
+                    onRecipientsChange={setRecipients}
+                    onNamesChange={setNames}
+                    onSubjectsChange={setSubjects}
+                />
+            </div>
+
+            <div className="template-editor">
+                <h3>Email Template</h3>
+                <TemplateEditor
+                    onTemplateChange={(template) => setTemplates([...templates, template])}
+                />
+            </div>
+
             {error && <div className="error-message">{error}</div>}
-            
+
             {errors.length > 0 && (
                 <div className="errors-list">
                     <h4>Failed Emails:</h4>
@@ -91,15 +104,18 @@ const EmailForm = () => {
                     ))}
                 </div>
             )}
-            
-            <Progress status={progress.status} message={progress.message} />
-            
+
+            <div className="progress">
+                <h3>Campaign Progress</h3>
+                <Progress status={progress.status} message={progress.message} />
+            </div>
+
             <button
                 className="send-button"
                 onClick={handleSendEmails}
                 disabled={progress.status === 'sending'}
             >
-                {progress.status === 'sending' ? 'Sending...' : 'Send Emails'}
+                {progress.status === 'sending' ? 'SENDING...' : 'LAUNCH CAMPAIGN'}
             </button>
         </div>
     );

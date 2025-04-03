@@ -1,8 +1,6 @@
 import express from 'express';
 import { createTransporter } from '../utils/smtpUtils.js';
-import { configManager } from './utils/configManager.js';
-
-
+import { configManager } from '../utils/configManager.js';
 import { replacePlaceholders } from "../utils/placeholderUtils.js";
 
 const router = express.Router();

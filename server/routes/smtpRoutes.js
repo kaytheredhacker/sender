@@ -4,7 +4,7 @@
  */
 import express from 'express';
 import { validateSmtpConfig } from '../utils/smtpUtils.js'; // Corrected path
-import { configManager } from './utils/configmanager.js';
+import { configManager } from '../utils/configManager.js';
 
 const router = express.Router();
 

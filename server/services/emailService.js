@@ -28,9 +28,9 @@ class EmailService {
             this.transporters.push(transporter);
             return true;
         } catch (error) {
-            alertService.alertError(error, { 
-                context: 'addTransporter', 
-                config: {...config, auth: {...config.auth, pass: '[REDACTED]'}} 
+            alertService.alertError(error, {
+                context: 'addTransporter',
+                config: {...config, auth: {...config.auth, pass: '[REDACTED]'}}
             });
             return false;
         }
@@ -61,12 +61,12 @@ class EmailService {
             });
             return { success: true, response: info.response };
         } catch (err) {
-            await alertService.alertError(err, { 
-                context: 'sendEmail', 
-                to, 
-                fromName, 
+            await alertService.alertError(err, {
+                context: 'sendEmail',
+                to,
+                fromName,
                 subject,
-                smtpIndex 
+                smtpIndex
             });
             return { success: false, error: err.message };
         }
@@ -96,7 +96,7 @@ class EmailService {
             const baseDelay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
             const jitter = Math.floor(Math.random() * 2000); // Add up to 2 seconds of jitter
             const finalDelay = baseDelay + jitter;
-            
+
             if (this.totalDelay + finalDelay > this.MAX_TOTAL_DELAY) {
                 reject(new Error('Maximum delay limit reached'));
                 return;
@@ -196,7 +196,7 @@ class EmailService {
             success_rate: ((sentCount / recipients.length) * 100).toFixed(2) + '%',
             completion_time: new Date().toISOString()
         };
-        
+
         console.log('Email Campaign Summary:', stats);
         return stats;
     }
@@ -209,7 +209,7 @@ class EmailService {
         while (this.emailQueue.length > 0) {
             const task = this.emailQueue[0];
             const transporter = this.transporters[task.smtpIndex % this.transporters.length];
-            
+
             // Check rate limits
             const rateLimit = this.rateLimits.get(transporter) || { count: 0, resetTime: Date.now() };
             if (rateLimit.count >= 100 && Date.now() < rateLimit.resetTime) {
@@ -249,7 +249,7 @@ class EmailService {
             }
 
             this.emailQueue.shift();
-            
+
             // Add delay between emails
             await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
         }
@@ -303,18 +303,39 @@ class EmailService {
 export const emailService = new EmailService();
 
 export const sendEmail = async (config, to, fromName, subject, htmlContent) => {
-    const transporter = await createTransporter(config);
-    const messageId = randomstring.generate({ length: 12, charset: 'alphanumeric' });
-    
-    const mailOptions = {
-        from: `"${fromName}" <${config.username}>`,
-        to,
-        subject,
-        html: htmlContent,
-        messageId: `<${messageId}@${config.host}>`
-    };
+    try {
+        console.log('sendEmail called with config:', {
+            ...config,
+            password: '********' // Redact password for logging
+        });
 
-    await transporter.sendMail(mailOptions);
-    await delay();
-    return messageId;
+        const transporter = await createTransporter(config);
+        const messageId = randomstring.generate({ length: 12, charset: 'alphanumeric' });
+
+        const mailOptions = {
+            from: `"${fromName}" <${config.username}>`,
+            to,
+            subject,
+            html: htmlContent,
+            messageId: `<${messageId}@${config.host}>`,
+            headers: {
+                'X-Mailer': 'NodeMailer',
+                'X-Priority': '3',
+                'X-Spam-Status': 'No, score=0.0',
+                'X-Content-Type-Message-Body': '1',
+                'Reply-To': config.username,
+                'Return-Path': config.username
+            }
+        };
+
+        console.log(`Sending email to ${to} with subject "${subject}"`);
+        await transporter.sendMail(mailOptions);
+        console.log(`Email sent successfully to ${to}`);
+
+        await delay();
+        return messageId;
+    } catch (error) {
+        console.error(`Failed to send email to ${to}:`, error);
+        throw error; // Re-throw to be handled by the caller
+    }
 };

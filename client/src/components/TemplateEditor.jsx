@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { saveTemplate, getTemplates, deleteTemplate } from '../services/api';
 import '../styles/TemplateEditor.css';
 
 const TemplateEditor = ({ onTemplateChange }) => {
@@ -28,21 +27,29 @@ const TemplateEditor = ({ onTemplateChange }) => {
 
     const loadTemplates = async () => {
         try {
-            const templates = await getTemplates();
-            setSavedTemplates(templates);
+            // Debug: Check if window.electronAPI exists
+            console.log('Loading templates, window.electronAPI:', window.electronAPI);
+
+            if (window.electronAPI && window.electronAPI.getAllTemplates) {
+                const result = await window.electronAPI.getAllTemplates();
+                if (result.success) {
+                    console.log('Templates loaded:', result.templates);
+                    setSavedTemplates(result.templates || []);
+                } else {
+                    throw new Error(result.message || 'Failed to load templates');
+                }
+            } else {
+                throw new Error('Electron API not available for loading templates');
+            }
         } catch (err) {
+            console.error('Load templates error:', err);
             setError('Failed to load templates: ' + err.message);
         }
     };
 
     const handleSave = async () => {
-        if (!templateName.trim()) {
-            setError('Please enter a template name');
-            return;
-        }
-
-        if (!template.trim()) {
-            setError('Please enter template content');
+        if (!templateName.trim() || !template.trim()) {
+            setError('Template name and content are required');
             return;
         }
 
@@ -50,21 +57,35 @@ const TemplateEditor = ({ onTemplateChange }) => {
         setError('');
 
         try {
-            await saveTemplate(templateName, template);
-            
-            // Create new template object
-            const newTemplate = { name: templateName, content: template };
-            
-            // Add new template and keep only the 4 most recent ones
-            setSavedTemplates(prevTemplates => {
-                const updatedTemplates = [...prevTemplates, newTemplate];
-                return updatedTemplates.slice(-4); // Keep only the 4 most recent templates
-            });
-            
-            setTemplateName('');
-            setTemplate('');
-            onTemplateChange(template);
+            // Debug: Check if window.electronAPI exists
+            console.log('window.electronAPI:', window.electronAPI);
+
+            // Try direct access to window.electronAPI
+            if (window.electronAPI && window.electronAPI.saveTemplate) {
+                const result = await window.electronAPI.saveTemplate({
+                    name: templateName,
+                    content: template
+                });
+
+                if (result.success) {
+                    // Update local state with new template
+                    setSavedTemplates(prev => {
+                        const newTemplates = [...prev, { name: templateName, content: template, id: result.template?.id || Date.now() }];
+                        return newTemplates.slice(-4); // Keep only 4 most recent
+                    });
+
+                    setTemplateName('');
+                    setTemplate('');
+                    onTemplateChange(template);
+                } else {
+                    throw new Error(result.message || 'Failed to save template');
+                }
+            } else {
+                throw new Error('Electron API not available. window.electronAPI: ' +
+                    (window.electronAPI ? 'exists but saveTemplate is missing' : 'is undefined'));
+            }
         } catch (err) {
+            console.error('Save template error:', err);
             setError('Failed to save template: ' + err.message);
         } finally {
             setIsSaving(false);
@@ -82,9 +103,18 @@ const TemplateEditor = ({ onTemplateChange }) => {
         if (window.confirm('Are you sure you want to delete this template?')) {
             setIsDeleting(true);
             try {
-                await deleteTemplate(templateId);
-                await loadTemplates();
+                if (window.electronAPI && window.electronAPI.deleteTemplate) {
+                    const result = await window.electronAPI.deleteTemplate(templateId);
+                    if (result.success) {
+                        await loadTemplates();
+                    } else {
+                        throw new Error(result.message || 'Failed to delete template');
+                    }
+                } else {
+                    throw new Error('Electron API not available for deleting templates');
+                }
             } catch (err) {
+                console.error('Delete template error:', err);
                 setError('Failed to delete template: ' + err.message);
             } finally {
                 setIsDeleting(false);
@@ -105,7 +135,7 @@ const TemplateEditor = ({ onTemplateChange }) => {
     };
 
     return (
-        <div className="template-editor">
+        <div className="template-input">
             <div className="template-header">
                 <input
                     type="text"
@@ -115,25 +145,25 @@ const TemplateEditor = ({ onTemplateChange }) => {
                     className="template-name-input"
                 />
                 <div className="template-actions">
-                    <button 
+                    <button
                         className={`preview-button ${showPreview ? 'active' : ''}`}
                         onClick={() => setShowPreview(!showPreview)}
                     >
-                        {showPreview ? 'Edit' : 'Preview'}
+                        {showPreview ? 'EDIT CODE' : 'PREVIEW'}
                     </button>
-                    <button 
+                    <button
                         onClick={handleSave}
                         disabled={isSaving}
                         className="save-button"
                     >
-                        {isSaving ? 'Saving...' : 'Save Template'}
+                        {isSaving ? 'SAVING...' : 'SAVE TEMPLATE'}
                     </button>
                 </div>
             </div>
 
             <div className="template-content">
                 <div className="variables-section">
-                    <h3>Available Variables</h3>
+                    <h4>Email Variables</h4>
                     <div className="variables-grid">
                         {variables.map(({ name, description }) => (
                             <div
@@ -150,28 +180,26 @@ const TemplateEditor = ({ onTemplateChange }) => {
 
                 {showPreview ? (
                     <div className="preview-container">
-                        <div 
+                        <div className="preview-header">Email Preview</div>
+                        <div
                             className="preview-content"
                             dangerouslySetInnerHTML={{ __html: template }}
                         />
                     </div>
                 ) : (
                     <div className="code-editor">
-                        <pre>
-                            <code>
-                                <textarea
-                                    value={template}
-                                    onChange={(e) => {
-                                        setTemplate(e.target.value);
-                                        onTemplateChange(e.target.value);
-                                    }}
-                                    spellCheck="false"
-                                    autoComplete="off"
-                                    className="code-input"
-                                    placeholder="Enter your HTML template here..."
-                                />
-                            </code>
-                        </pre>
+                        <div className="editor-header">HTML Template</div>
+                        <textarea
+                            value={template}
+                            onChange={(e) => {
+                                setTemplate(e.target.value);
+                                onTemplateChange(e.target.value);
+                            }}
+                            spellCheck="false"
+                            autoComplete="off"
+                            className="code-input"
+                            placeholder="Enter your HTML template here..."
+                        />
                     </div>
                 )}
             </div>
@@ -179,24 +207,28 @@ const TemplateEditor = ({ onTemplateChange }) => {
             {error && <div className="error-message">{error}</div>}
 
             <div className="saved-templates">
-                <h3>Saved Templates</h3>
+                <h4>Saved Templates</h4>
                 <div className="template-list">
-                    {savedTemplates.map((t) => (
-                        <div 
-                            key={t.id}
-                            className="template-item"
-                            onClick={() => handleTemplateSelect(t)}
-                        >
-                            <span className="template-name">{t.name}</span>
-                            <button 
-                                className="delete-template-btn"
-                                onClick={(e) => handleDeleteTemplate(e, t.id)}
-                                disabled={isDeleting}
+                    {savedTemplates.length === 0 ? (
+                        <div className="no-templates">No templates saved yet</div>
+                    ) : (
+                        savedTemplates.map((t) => (
+                            <div
+                                key={t.id}
+                                className="template-item"
+                                onClick={() => handleTemplateSelect(t)}
                             >
-                                {isDeleting ? '...' : '×'}
-                            </button>
-                        </div>
-                    ))}
+                                <span className="template-name">{t.name}</span>
+                                <button
+                                    className="delete-template-btn"
+                                    onClick={(e) => handleDeleteTemplate(e, t.id)}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? '...' : '×'}
+                                </button>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

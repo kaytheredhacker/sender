@@ -23,10 +23,20 @@ const Progress = ({ status, message }) => {
                         <div className="spinner"></div>
                     </div>
                 )}
-                <span className="status-text">{message}</span>
+                <span className="status-text">{message || 'Ready to send'}</span>
+            </div>
+            <div className="progress-bar">
+                <div
+                    className="progress-fill"
+                    style={{
+                        width: status === 'sending' ? '50%' :
+                               status === 'complete' ? '100%' : '0%',
+                        transition: 'width 0.5s ease-in-out'
+                    }}
+                ></div>
             </div>
         </div>
     );
 };
 
-export default Progress; 
+export default Progress;

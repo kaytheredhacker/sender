@@ -18,27 +18,51 @@ export const validateSmtpConfig = (config) => {
  * @returns {Object} - Nodemailer transporter
  */
 export const createTransporter = async (config) => {
-  const transporter = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    auth: {
-      user: config.username,
-      pass: config.password
+  try {
+    console.log('Creating transporter with config:', {
+      host: config.host,
+      port: parseInt(config.port, 10),
+      secure: config.secure || false,
+      username: config.username,
+      // Password is redacted for security
+    });
+
+    // Make sure port is a number
+    const port = parseInt(config.port, 10);
+    if (isNaN(port)) {
+      throw new Error(`Invalid port: ${config.port}`);
     }
-  });
 
-  await transporter.verify();
-  return transporter;
+    // Make sure secure is a boolean
+    let secure = false;
+    if (typeof config.secure === 'boolean') {
+      secure = config.secure;
+    } else if (config.secure === 'true') {
+      secure = true;
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: config.host,
+      port: port,
+      secure: secure,
+      auth: {
+        user: config.username,
+        pass: config.password
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 15000
+    });
+
+    console.log('Verifying SMTP connection...');
+    await transporter.verify();
+    console.log('SMTP connection verified successfully');
+
+    return transporter;
+  } catch (error) {
+    console.error('Failed to create transporter:', error);
+    throw error;
+  }
 };
 
-/**
- * Gets the current SMTP configuration based on email count
- * @param {Array} configs - Array of SMTP configuration objects
- * @param {number} emailCount - Number of emails sent
- * @returns {Object} - Current SMTP configuration
- */
-export const getCurrentSmtpConfig = (configs, emailCount) => {
-  const index = Math.floor(emailCount / 100) % configs.length;
-  return configs[index];
-};
+// getCurrentSmtpConfig has been moved to rotationUtils.js
