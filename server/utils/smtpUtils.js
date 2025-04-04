@@ -33,12 +33,23 @@ export const createTransporter = async (config) => {
       throw new Error(`Invalid port: ${config.port}`);
     }
 
-    // Make sure secure is a boolean
+    // Make sure secure is a boolean and correctly set based on port
     let secure = false;
     if (typeof config.secure === 'boolean') {
       secure = config.secure;
     } else if (config.secure === 'true') {
       secure = true;
+    }
+
+    // Override secure setting based on port for common SMTP providers
+    // Port 587 should always use STARTTLS (secure: false)
+    // Port 465 should always use SSL/TLS (secure: true)
+    if (port === 587) {
+      secure = false;
+      console.log('Port 587 detected, setting secure to false (using STARTTLS)');
+    } else if (port === 465) {
+      secure = true;
+      console.log('Port 465 detected, setting secure to true (using SSL/TLS)');
     }
 
     const transporter = nodemailer.createTransport({

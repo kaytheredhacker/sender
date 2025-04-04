@@ -149,33 +149,82 @@ const SMTPConfig = ({ onConfigSave }) => {
   const handleTestConfig = async (config) => {
     setIsLoading(true);
     try {
-      const result = await window.electronAPI.testSmtpConfig(config);
-      if (result.success) {
-        // Update the config status to Verified
-        const updatedConfigs = configs.map(c => {
-          if (c.name === config.name) {
-            return { ...c, status: 'Verified' };
+      // Check if using Gmail with port 587 and secure:true (common mistake)
+      if (config.host.includes('gmail.com') && config.port === '587' && config.secure === true) {
+        // Automatically fix the configuration
+        const fixedConfig = { ...config, secure: false };
+        console.log('Fixing Gmail configuration - changing secure from true to false for port 587');
+
+        // Update the config
+        const result = await window.electronAPI.testSmtpConfig(fixedConfig);
+        if (result.success) {
+          // Update the config status to Verified
+          const updatedConfigs = configs.map(c => {
+            if (c.name === config.name) {
+              return { ...fixedConfig, status: 'Verified' };
+            }
+            return c;
+          });
+          setConfigs(updatedConfigs);
+
+          // Save the updated status to the store
+          const updatedConfig = { ...fixedConfig, status: 'Verified' };
+          await window.electronAPI.saveSmtpConfig(updatedConfig);
+
+          // Load the updated configs to pass to the parent component
+          const configsResult = await window.electronAPI.getSmtpConfigs();
+          if (configsResult.success && onConfigSave && typeof onConfigSave === 'function') {
+            onConfigSave(configsResult.configs);
           }
-          return c;
-        });
-        setConfigs(updatedConfigs);
 
-        // Save the updated status to the store
-        const updatedConfig = { ...config, status: 'Verified' };
-        await window.electronAPI.saveSmtpConfig(updatedConfig);
-
-        // Load the updated configs to pass to the parent component
-        const configsResult = await window.electronAPI.getSmtpConfigs();
-        if (configsResult.success && onConfigSave && typeof onConfigSave === 'function') {
-          onConfigSave(configsResult.configs);
+          alert('SMTP configuration test successful! Note: We automatically set secure=false for Gmail port 587.');
+        } else {
+          setError(`SMTP test failed: ${result.message}`);
         }
-
-        alert('SMTP configuration test successful!');
       } else {
-        setError(`SMTP test failed: ${result.message}`);
+        // Normal test flow
+        const result = await window.electronAPI.testSmtpConfig(config);
+        if (result.success) {
+          // Update the config status to Verified
+          const updatedConfigs = configs.map(c => {
+            if (c.name === config.name) {
+              return { ...c, status: 'Verified' };
+            }
+            return c;
+          });
+          setConfigs(updatedConfigs);
+
+          // Save the updated status to the store
+          const updatedConfig = { ...config, status: 'Verified' };
+          await window.electronAPI.saveSmtpConfig(updatedConfig);
+
+          // Load the updated configs to pass to the parent component
+          const configsResult = await window.electronAPI.getSmtpConfigs();
+          if (configsResult.success && onConfigSave && typeof onConfigSave === 'function') {
+            onConfigSave(configsResult.configs);
+          }
+
+          alert('SMTP configuration test successful!');
+        } else {
+          // Check for common SMTP errors and provide helpful messages
+          if (result.message.includes('WRONG_VERSION_NUMBER')) {
+            setError(`SMTP test failed: SSL/TLS configuration error. If using port 587, try setting 'secure' to false. If using port 465, set 'secure' to true.`);
+          } else if (result.message.includes('Invalid login')) {
+            setError(`SMTP test failed: Invalid username or password. If using Gmail, make sure you've enabled 'Less secure app access' or are using an App Password.`);
+          } else {
+            setError(`SMTP test failed: ${result.message}`);
+          }
+        }
       }
     } catch (err) {
-      setError('Failed to test SMTP configuration: ' + err.message);
+      // Check for common SMTP errors in the catch block too
+      if (err.message && err.message.includes('WRONG_VERSION_NUMBER')) {
+        setError(`SMTP test failed: SSL/TLS configuration error. If using port 587, try setting 'secure' to false. If using port 465, set 'secure' to true.`);
+      } else if (err.message && err.message.includes('Invalid login')) {
+        setError(`SMTP test failed: Invalid username or password. If using Gmail, make sure you've enabled 'Less secure app access' or are using an App Password.`);
+      } else {
+        setError('Failed to test SMTP configuration: ' + (err.message || 'Unknown error'));
+      }
     } finally {
       setIsLoading(false);
     }

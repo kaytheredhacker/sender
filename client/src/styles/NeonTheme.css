@@ -28,6 +28,41 @@
   font-style: normal;
 }
 
+/* Neon Text Effects */
+@keyframes neonPulse {
+  0% {
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7), 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 10px rgba(255, 0, 255, 0.7), 0 0 20px rgba(255, 0, 255, 0.5), 0 0 30px rgba(255, 0, 255, 0.3);
+  }
+  100% {
+    text-shadow: 0 0 5px rgba(0, 255, 255, 0.7), 0 0 10px rgba(0, 255, 255, 0.5);
+  }
+}
+
+.neon-text {
+  animation: neonPulse 3s infinite;
+  font-family: 'Orbitron', 'Impact', 'Arial Black', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+.neon-text-blue {
+  color: var(--neon-blue);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.7), 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.neon-text-pink {
+  color: var(--neon-pink);
+  text-shadow: 0 0 5px rgba(255, 0, 255, 0.7), 0 0 10px rgba(255, 0, 255, 0.5);
+}
+
+.neon-text-green {
+  color: var(--neon-green);
+  text-shadow: 0 0 5px rgba(0, 255, 0, 0.7), 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
 :root {
   /* Neon Colors */
   --neon-pink: #ff00ff;
@@ -112,13 +147,21 @@ h2 {
   margin-bottom: var(--spacing-lg);
   position: relative;
   width: 100%;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.1);
 }
 
 .neon-title {
-  font-size: 32px;
-  color: var(--text-primary);
+  font-size: 36px;
   margin: 0;
   letter-spacing: 4px;
+  font-family: 'Orbitron', 'Impact', 'Arial Black', sans-serif;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink), var(--neon-green));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+  animation: neonPulse 3s infinite;
 }
 
 .neon-subtitle {
@@ -127,6 +170,7 @@ h2 {
   margin-top: var(--spacing-sm);
   letter-spacing: 3px;
   opacity: 0.8;
+  font-family: 'Rajdhani', 'Segoe UI', 'Arial', sans-serif;
 }
 
 .main-container {
@@ -948,13 +992,14 @@ h2 {
 .floating-brand {
   position: fixed;
   font-family: 'Orbitron', 'Impact', 'Arial Black', sans-serif;
-  font-size: 20px;
+  font-size: 24px;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.05;
+  opacity: 0.08;
   animation: float 20s linear infinite;
   text-transform: uppercase;
   letter-spacing: 2px;
+  white-space: nowrap;
 }
 
 .supported-by {
@@ -964,37 +1009,65 @@ h2 {
   font-family: 'Orbitron', 'Impact', 'Arial Black', sans-serif;
   font-size: 12px;
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: 0.8;
   text-transform: uppercase;
   letter-spacing: 1px;
+  z-index: 100;
+  padding: 5px 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  border-top: 1px solid rgba(0, 255, 255, 0.2);
+  border-left: 1px solid rgba(0, 255, 255, 0.2);
 }
 
 .floating-brand:nth-child(1) {
   top: 10%;
   left: 5%;
-  color: var(--text-primary);
+  color: var(--neon-blue);
+  opacity: 0.1;
   animation-delay: 0s;
 }
 
 .floating-brand:nth-child(2) {
   top: 30%;
   right: 10%;
-  color: var(--text-primary);
+  color: var(--neon-pink);
+  opacity: 0.08;
   animation-delay: -5s;
 }
 
 .floating-brand:nth-child(3) {
   bottom: 20%;
   left: 15%;
-  color: var(--text-primary);
+  color: var(--neon-green);
+  opacity: 0.07;
   animation-delay: -10s;
 }
 
 .floating-brand:nth-child(4) {
   top: 50%;
   right: 20%;
-  color: var(--text-primary);
+  color: var(--neon-purple);
+  opacity: 0.09;
   animation-delay: -15s;
+}
+
+.floating-brand:nth-child(5) {
+  bottom: 40%;
+  right: 5%;
+  color: var(--neon-blue);
+  opacity: 0.06;
+  animation-delay: -8s;
+  transform: rotate(-15deg);
+}
+
+.floating-brand:nth-child(6) {
+  top: 70%;
+  left: 30%;
+  color: var(--neon-pink);
+  opacity: 0.05;
+  animation-delay: -12s;
+  transform: rotate(10deg);
 }
 
 @keyframes float {

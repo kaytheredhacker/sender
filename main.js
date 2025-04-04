@@ -225,6 +225,16 @@ ipcMain.handle('smtp:test-config', async (event, config) => {
       config.secure = false;
     }
 
+    // Override secure setting based on port for common SMTP providers
+    const port = parseInt(config.port, 10);
+    if (port === 587) {
+      config.secure = false;
+      console.log('Port 587 detected, setting secure to false (using STARTTLS)');
+    } else if (port === 465) {
+      config.secure = true;
+      console.log('Port 465 detected, setting secure to true (using SSL/TLS)');
+    }
+
     // Validate the config first
     const validation = validateSmtpConfig(config);
     if (!validation.isValid) {
@@ -264,6 +274,16 @@ ipcMain.handle('email:send', async (event, { to, fromName, subject, html, config
       config.secure = true;
     } else {
       config.secure = false;
+    }
+
+    // Override secure setting based on port for common SMTP providers
+    const port = parseInt(config.port, 10);
+    if (port === 587) {
+      config.secure = false;
+      console.log('Port 587 detected, setting secure to false (using STARTTLS)');
+    } else if (port === 465) {
+      config.secure = true;
+      console.log('Port 465 detected, setting secure to true (using SSL/TLS)');
     }
 
     // Create the transporter with proper timeout settings

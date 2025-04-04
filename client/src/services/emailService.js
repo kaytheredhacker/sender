@@ -88,7 +88,7 @@ class EmailService {
 
                     this.successCount++;
                     this.emailCount++;
-                    
+
                     onProgress({
                         status: 'sending',
                         message: `Sent ${this.successCount} of ${recipients.length} emails (Template: ${rotationState.templateIndex + 1}, SMTP: ${rotationState.smtpIndex + 1})`,
@@ -99,10 +99,10 @@ class EmailService {
                 } catch (error) {
                     this.failureCount++;
                     this.emailCount++;
-                    
+
                     // Try alternative SMTP config on failure
                     rotationState.smtpIndex = (rotationState.smtpIndex + 1) % smtpConfigs.length;
-                    
+
                     onError({
                         recipient,
                         error: error.message,
@@ -130,12 +130,14 @@ class EmailService {
 
     async sendSingleEmail({ recipient, name, subject, template, smtpConfig }) {
         try {
+            console.log('sendSingleEmail called with smtpConfig:', smtpConfig);
+
             const result = await sendEmails({
                 recipients: [recipient],
                 names: [name],
                 subjects: [subject],
                 templates: [template],
-                smtpConfig
+                smtpConfigs: [smtpConfig] // Fix: Pass as array with smtpConfigs key
             });
 
             return result;

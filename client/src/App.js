@@ -10,11 +10,13 @@ function App() {
             <div className="app compact-layout">
                 {/* Neon Header */}
                 <header className="neon-header">
-                    <h1 className="neon-title">Email Sender Pro</h1>
+                    <h1 className="neon-title">Tech-Girl-Nerd</h1>
                     <p className="neon-subtitle">Professional Email Campaign Tool</p>
                 </header>
 
                 {/* Floating brand names with neon colors */}
+                <div className="floating-brand">Tech-Girl-Nerd</div>
+                <div className="floating-brand">Tech-Girl-Nerd</div>
                 <div className="floating-brand">Tech-Girl-Nerd</div>
                 <div className="floating-brand">Tech-Girl-Nerd</div>
                 <div className="floating-brand">Tech-Girl-Nerd</div>
@@ -25,7 +27,7 @@ function App() {
                 </main>
 
                 <div className="supported-by">
-                    Powered by Tech-Girl-Nerd
+                    Powered by <span className="neon-text neon-text-blue">Tech-Girl-Nerd</span>
                 </div>
             </div>
         </ErrorBoundary>
