@@ -6,7 +6,8 @@ export const getCurrentTemplate = (templates, emailCount) => {
     return templates[index];
 };
 
-export const delay = async (minMs = 1000, maxMs = 5000) => {
+export const delay = async (minMs = 3000, maxMs = 9000) => {
     const delayTime = Math.floor(Math.random() * (maxMs - minMs)) + minMs;
+    console.log(`Waiting for ${delayTime/1000} seconds before sending next email...`);
     await new Promise(resolve => setTimeout(resolve, delayTime));
 };

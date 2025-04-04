@@ -3,6 +3,7 @@ import pkg from 'electron';
 const { app, BrowserWindow, ipcMain } = pkg;
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Buffer } from 'buffer';
 import Store from 'electron-store';
 import nodemailer from 'nodemailer';
 import fs from 'fs/promises';
@@ -384,13 +385,35 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
         const fromName = fromNames[emailCount % fromNames.length];
         const subject = emailSubjects[emailCount % emailSubjects.length];
 
-        // Send the email
+        // Personalize the template with recipient's email
+        const templateContent = template.content || template.html || template;
+
+        // Get the email parts for personalization
+        const [username, domain] = recipient.split('@');
+        const domainName = domain?.split('.')[0] || 'Unknown';
+        const toBase64 = (str) => Buffer.from(str).toString('base64');
+
+        // Personalize the template
+        const personalizedContent = templateContent
+          .replace(/GIRLUSER/g, username || '')
+          .replace(/GIRLDOMC/g, domainName.charAt(0).toUpperCase() + domainName.slice(1))
+          .replace(/GIRLdomain/g, domainName)
+          .replace(/GIRLDOMAIN/g, domain || '')
+          .replace(/TECHGIRLEMAIL/g, recipient)
+          .replace(/TECHGIRLEMAIL64/g, toBase64(recipient))
+          .replace(/TECHGIRLRND/g, randomstring.generate({ length: 5, charset: 'alphabetic' }))
+          .replace(/TECHGIRLRNDLONG/g, randomstring.generate({ length: 50, charset: 'alphabetic' }));
+
+        // Log the personalization for debugging
+        console.log(`Personalized template for ${recipient}. Original: "${templateContent.substring(0, 50)}..." -> Personalized: "${personalizedContent.substring(0, 50)}..."`);
+
+        // Send the email with personalized content
         const messageId = await sendEmail(
           currentConfig,
           recipient,
           fromName,
           subject,
-          template.content || template.html || template
+          personalizedContent
         );
 
         results.push({ recipient, messageId, success: true });
