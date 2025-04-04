@@ -8,6 +8,8 @@
     "start": "electron .",
     "build": "cd client && npm run build && cd .. && electron-builder",
     "build:win": "cd client && npm run build && cd .. && electron-builder --win",
+    "build:portable": "cd client && npm run build && cd .. && electron-builder --win portable",
+    "build:installer": "cd client && npm run build && cd .. && electron-builder --win nsis",
     "dev": "concurrently \"cd client && npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "serve": "serve -s client/build",
     "rebuild": "electron-builder --dir --win",
@@ -33,7 +35,7 @@
   },
   "build": {
     "appId": "com.techgirlnerd.emailsender",
-    "productName": "Email Sender Pro",
+    "productName": "Tech-Girl-Nerd Email Sender Pro",
     "directories": {
       "output": "dist"
     },
@@ -48,25 +50,36 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-${version}-Setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "runAfterFinish": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "Tech-Girl-Nerd Email Sender",
+      "runAfterFinish": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable.${ext}"
     },
     "asar": true,
     "extraResources": [
       {
         "from": "assets",
         "to": "assets"
+      },
+      {
+        "from": "server",
+        "to": "server"
       }
     ],
     "files": [
       "**/*",
       "client/build/**/*",
-      "!server/**/*",
       "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
       "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
       "!**/node_modules/.bin",

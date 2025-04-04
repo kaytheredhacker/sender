@@ -31,5 +31,45 @@ contextBridge.exposeInMainWorld('electronAPI', Object.freeze({
   sendBatchEmails: (data) => {
     console.log('sendBatchEmails called with data:', data);
     return ipcRenderer.invoke('email:send-batch', data);
+  },
+
+  // Cancel email sending
+  cancelSendingEmails: () => {
+    console.log('cancelSendingEmails called');
+    return ipcRenderer.invoke('email:cancel-sending');
+  },
+
+  // Event listeners for email sending status
+  onSendingStatus: (callback) => {
+    ipcRenderer.on('email:sending-status', callback);
+  },
+
+  offSendingStatus: (callback) => {
+    ipcRenderer.removeListener('email:sending-status', callback);
+  },
+
+  // Event listeners for email progress
+  onEmailProgress: (callback) => {
+    ipcRenderer.on('email:progress', callback);
+  },
+
+  offEmailProgress: (callback) => {
+    ipcRenderer.removeListener('email:progress', callback);
+  },
+
+  // Recipient list management
+  saveRecipientList: (data) => {
+    console.log('saveRecipientList called with data:', data);
+    return ipcRenderer.invoke('recipients:save-list', data);
+  },
+
+  getRecipientLists: () => {
+    console.log('getRecipientLists called');
+    return ipcRenderer.invoke('recipients:get-lists');
+  },
+
+  deleteRecipientList: (listName) => {
+    console.log('deleteRecipientList called with name:', listName);
+    return ipcRenderer.invoke('recipients:delete-list', listName);
   }
 }));

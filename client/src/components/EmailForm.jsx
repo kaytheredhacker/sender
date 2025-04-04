@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { emailService } from '../services/emailService';
 import SMTPConfig from './SMTPConfig';
 import FileUpload from './FileUpload';
@@ -15,6 +15,101 @@ const EmailForm = () => {
     const [progress, setProgress] = useState({ status: 'idle', message: '' });
     const [error, setError] = useState(null);
     const [errors, setErrors] = useState([]);
+    const [isSending, setIsSending] = useState(false);
+
+    // Listen for sending status updates from the main process
+    // Track the total emails sent and failed
+    const [emailStats, setEmailStats] = useState({ sent: 0, failed: 0, total: 0 });
+
+    useEffect(() => {
+        const handleSendingStatus = (event, data) => {
+            console.log('Received sending status:', data);
+
+            if (data.status === 'started') {
+                setIsSending(true);
+                setEmailStats({ sent: 0, failed: 0, total: data.total });
+                setProgress({
+                    status: 'sending',
+                    message: `Starting email campaign to ${data.total} recipients...`,
+                    current: 0,
+                    total: data.total
+                });
+            } else if (data.status === 'completed') {
+                setIsSending(false);
+                // Update email stats with the values from the server
+                setEmailStats(prev => ({ ...prev, sent: data.sent, failed: data.failed }));
+                setProgress(prev => ({
+                    ...prev,
+                    status: 'complete',
+                    message: `Email campaign completed. Sent: ${data.sent}, Failed: ${data.failed}`,
+                    current: data.sent + data.failed,
+                    total: prev.total
+                }));
+            } else if (data.status === 'cancelled') {
+                setIsSending(false);
+                setEmailStats(prev => ({ ...prev, sent: data.sent, failed: data.failed }));
+                setProgress(prev => ({
+                    ...prev,
+                    status: 'cancelled',
+                    message: `Email campaign cancelled. Sent: ${data.sent}, Failed: ${data.failed}`,
+                    current: data.sent + data.failed,
+                    total: prev.total
+                }));
+            } else if (data.status === 'error') {
+                setIsSending(false);
+                setProgress(prev => ({
+                    ...prev,
+                    status: 'error',
+                    message: `Email campaign failed: ${data.error}`
+                }));
+                setError(data.error);
+            }
+        };
+
+        const handleEmailProgress = (event, data) => {
+            console.log('Received email progress:', data);
+
+            // Update email stats with the values from the server
+            if (data.sent !== undefined && data.failed !== undefined) {
+                setEmailStats({
+                    sent: data.sent,
+                    failed: data.failed,
+                    total: data.total
+                });
+            } else {
+                // Fallback to the old way if server doesn't provide counts
+                if (data.success) {
+                    setEmailStats(prev => ({ ...prev, sent: prev.sent + 1 }));
+                } else {
+                    setEmailStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+                }
+            }
+
+            // Add error to the errors list if there is one
+            if (!data.success && data.error) {
+                setErrors(prev => [...prev, { recipient: data.recipient, error: data.error }]);
+            }
+
+            // Update progress without resetting it
+            setProgress(prev => ({
+                ...prev,
+                status: 'sending',
+                message: `Sending emails... ${data.current}/${data.total} (${Math.round((data.current/data.total)*100)}%)`,
+                current: data.current,
+                total: data.total
+            }));
+        };
+
+        // Add event listeners
+        window.electronAPI.onSendingStatus(handleSendingStatus);
+        window.electronAPI.onEmailProgress(handleEmailProgress);
+
+        // Clean up
+        return () => {
+            window.electronAPI.offSendingStatus(handleSendingStatus);
+            window.electronAPI.offEmailProgress(handleEmailProgress);
+        };
+    }, []);
 
     const handleConfigSave = async (configs) => {
         try {
@@ -39,6 +134,7 @@ const EmailForm = () => {
         setProgress({ status: 'sending', message: 'Starting email campaign...' });
         setError(null);
         setErrors([]);
+        setIsSending(true);
         emailService.reset();
 
         try {
@@ -56,13 +152,33 @@ const EmailForm = () => {
                 }
             });
 
-            setProgress({
-                status: 'complete',
-                message: `Campaign completed. Successfully sent ${result.summary.successful} emails. Failed: ${result.summary.failed}`
-            });
+            // The progress will be updated by the event listener
         } catch (err) {
-            setError(err.message);
-            setProgress({ status: 'error', message: 'Failed to send emails' });
+            setError(err.message || 'Failed to send emails');
+            setProgress({ status: 'error', message: 'Email campaign failed' });
+            setIsSending(false);
+        }
+    };
+
+    const handleCancelSending = async () => {
+        try {
+            // Don't change the progress status, just update the message
+            // This preserves the progress bar while indicating cancellation
+            setProgress(prevProgress => ({
+                ...prevProgress,
+                message: prevProgress.message + ' (FORCE STOPPING...)',
+            }));
+
+            // Call the API to cancel sending
+            const result = await window.electronAPI.cancelSendingEmails();
+            if (!result.success) {
+                setError(result.message || 'Failed to cancel email sending');
+            }
+
+            // Show a confirmation dialog to the user
+            alert('Force stop requested. The application will stop sending emails as soon as possible.');
+        } catch (err) {
+            setError(err.message || 'Failed to cancel email sending');
         }
     };
 
@@ -110,13 +226,23 @@ const EmailForm = () => {
                 <Progress status={progress.status} message={progress.message} />
             </div>
 
-            <button
-                className="send-button"
-                onClick={handleSendEmails}
-                disabled={progress.status === 'sending'}
-            >
-                {progress.status === 'sending' ? 'SENDING...' : 'LAUNCH CAMPAIGN'}
-            </button>
+            <div className="action-buttons">
+                <button
+                    className="send-button"
+                    onClick={handleSendEmails}
+                    disabled={isSending || progress.status === 'sending' || progress.status === 'cancelling'}
+                >
+                    {progress.status === 'sending' ? 'SENDING...' : 'LAUNCH CAMPAIGN'}
+                </button>
+
+                <button
+                    className="force-quit-button"
+                    onClick={handleCancelSending}
+                    disabled={!isSending || progress.status === 'cancelling'}
+                >
+                    {progress.status === 'cancelling' ? 'FORCE STOPPING...' : 'FORCE STOP SENDING'}
+                </button>
+            </div>
         </div>
     );
 };

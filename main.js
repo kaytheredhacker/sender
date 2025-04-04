@@ -10,8 +10,7 @@ import fs from 'fs/promises';
 import winston from 'winston';
 import randomstring from 'randomstring';
 import { validateSmtpConfig } from './server/utils/validationUtils.js';
-import { getCurrentSmtpConfig } from './server/utils/rotationUtils.js';
-import { getCurrentTemplate } from './server/utils/templateUtils.js';
+import { getCurrentSmtpConfig, getCurrentTemplate } from './server/utils/rotationUtils.js';
 import { sendEmail } from './server/services/emailService.js';
 
 // Convert __dirname equivalent in ES modules
@@ -57,6 +56,8 @@ const logger = winston.createLogger({
 });
 
 let mainWindow;
+let isSendingEmails = false;
+let cancelSendingRequested = false;
 
 // Set development mode based on environment variable or default to production
 const isDev = process.env.NODE_ENV === 'development';
@@ -334,6 +335,12 @@ ipcMain.handle('email:send', async (event, { to, fromName, subject, html, config
 
 ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpConfigs, names, subjects }) => {
   try {
+    // Set the sending flag to true
+    isSendingEmails = true;
+    cancelSendingRequested = false;
+
+    // Notify the renderer that sending has started
+    mainWindow.webContents.send('email:sending-status', { status: 'started', total: recipients.length });
     // Debug: Log the received data
     console.log('email:send-batch received:', {
       recipientsCount: recipients?.length || 0,
@@ -378,10 +385,31 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
     let failureCount = 0;
 
     for (const recipient of recipients) {
+      // Check if cancellation was requested
+      if (cancelSendingRequested) {
+        console.log('Email sending FORCE STOPPED by user');
+        mainWindow.webContents.send('email:sending-status', {
+          status: 'cancelled',
+          sent: successCount,
+          failed: failureCount,
+          total: recipients.length,
+          message: 'Email campaign was force stopped by user.'
+        });
+        // Reset the sending flags
+        isSendingEmails = false;
+        cancelSendingRequested = false;
+        break;
+      }
+
       try {
         // Get current configuration based on rotation
         const currentConfig = getCurrentSmtpConfig(smtpConfigs, emailCount);
+
+        // Get the template for this recipient
+        // Templates are rotated for each recipient
         const template = getCurrentTemplate(templates, emailCount);
+        console.log(`Using template #${emailCount % templates.length + 1}: "${template.name || 'Unnamed'}" for recipient ${recipient}`);
+
         const fromName = fromNames[emailCount % fromNames.length];
         const subject = emailSubjects[emailCount % emailSubjects.length];
 
@@ -393,19 +421,111 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
         const domainName = domain?.split('.')[0] || 'Unknown';
         const toBase64 = (str) => Buffer.from(str).toString('base64');
 
-        // Personalize the template
-        const personalizedContent = templateContent
-          .replace(/GIRLUSER/g, username || '')
-          .replace(/GIRLDOMC/g, domainName.charAt(0).toUpperCase() + domainName.slice(1))
-          .replace(/GIRLdomain/g, domainName)
-          .replace(/GIRLDOMAIN/g, domain || '')
-          .replace(/TECHGIRLEMAIL/g, recipient)
-          .replace(/TECHGIRLEMAIL64/g, toBase64(recipient))
-          .replace(/TECHGIRLRND/g, randomstring.generate({ length: 5, charset: 'alphabetic' }))
-          .replace(/TECHGIRLRNDLONG/g, randomstring.generate({ length: 50, charset: 'alphabetic' }));
+        // Generate random strings that are consistent for this template
+        // Use the template name or ID as a seed to ensure consistency
+        const templateId = template.id || template.name || 'default';
+        const seed = `${templateId}-${emailCount}`;
+
+        // Use the seed to generate consistent random strings for this template
+        // We'll use a deterministic approach based on the template and recipient
+        // This ensures the same variables are used for all placeholders in the template
+        const getRandomString = (length, base) => {
+          const chars = 'abcdefghijklmnopqrstuvwxyz';
+          let result = '';
+          const baseStr = base + recipient.substring(0, 3);
+
+          for (let i = 0; i < length; i++) {
+            // Use a deterministic approach to generate the string
+            const charIndex = (baseStr.charCodeAt(i % baseStr.length) + i) % chars.length;
+            result += chars.charAt(charIndex);
+          }
+
+          return result;
+        };
+
+        // Generate consistent random strings for this template
+        const randomShort = getRandomString(5, seed);
+        const randomLong = getRandomString(50, seed);
+
+        const recipientBase64 = toBase64(recipient);
+        const capitalizedDomain = domainName ? domainName.charAt(0).toUpperCase() + domainName.slice(1) : '';
+
+        // Create a map of all possible placeholder formats
+        const placeholders = {
+          // Standard format
+          'GIRLUSER': username || '',
+          'GIRLDOMC': capitalizedDomain,
+          'GIRLdomain': domainName || '',
+          'GIRLDOMAIN': domain || '',
+          'TECHGIRLEMAIL': recipient,
+          'TECHGIRLEMAIL64': recipientBase64,
+          'TECHGIRLRND': randomShort,
+          'TECHGIRLRNDLONG': randomLong,
+
+          // With brackets format
+          '{GIRLUSER}': username || '',
+          '{GIRLDOMC}': capitalizedDomain,
+          '{GIRLdomain}': domainName || '',
+          '{GIRLDOMAIN}': domain || '',
+          '{TECHGIRLEMAIL}': recipient,
+          '{TECHGIRLEMAIL64}': recipientBase64,
+          '{TECHGIRLRND}': randomShort,
+          '{TECHGIRLRNDLONG}': randomLong,
+
+          // With %% format
+          '%%GIRLUSER%%': username || '',
+          '%%GIRLDOMC%%': capitalizedDomain,
+          '%%GIRLdomain%%': domainName || '',
+          '%%GIRLDOMAIN%%': domain || '',
+          '%%TECHGIRLEMAIL%%': recipient,
+          '%%TECHGIRLEMAIL64%%': recipientBase64,
+          '%%TECHGIRLRND%%': randomShort,
+          '%%TECHGIRLRNDLONG%%': randomLong,
+        };
+
+        // Log the placeholder values for debugging
+        console.log(`Placeholder values for template "${template.name || 'Unnamed'}" and recipient ${recipient}:`);
+        console.log({
+          GIRLUSER: username || '',
+          GIRLDOMC: capitalizedDomain,
+          GIRLdomain: domainName || '',
+          GIRLDOMAIN: domain || '',
+          TECHGIRLEMAIL: recipient,
+          TECHGIRLEMAIL64: recipientBase64.substring(0, 10) + '...',
+          TECHGIRLRND: randomShort,  // This will be consistent for the same template
+          TECHGIRLRNDLONG: randomShort + '...'  // This will be consistent for the same template
+        });
+
+        // Replace all placeholders in the template
+        let personalizedContent = templateContent;
+        for (const [placeholder, value] of Object.entries(placeholders)) {
+          personalizedContent = personalizedContent.split(placeholder).join(value);
+        }
+
+        // Also handle case-insensitive replacements for any remaining placeholders
+        const remainingPlaceholders = [
+          'GIRLUSER', 'GIRLDOMC', 'GIRLdomain', 'GIRLDOMAIN',
+          'TECHGIRLEMAIL', 'TECHGIRLEMAIL64', 'TECHGIRLRND', 'TECHGIRLRNDLONG'
+        ];
+
+        for (const placeholder of remainingPlaceholders) {
+          const regex = new RegExp(placeholder, 'gi');
+          const value = placeholders[placeholder];
+          personalizedContent = personalizedContent.replace(regex, value);
+        }
+
+        // Log a sample of the personalized content
+        const contentPreview = personalizedContent.substring(0, 100).replace(/\n/g, ' ');
+        console.log(`Personalized content preview for ${recipient}: ${contentPreview}...`);
 
         // Log the personalization for debugging
         console.log(`Personalized template for ${recipient}. Original: "${templateContent.substring(0, 50)}..." -> Personalized: "${personalizedContent.substring(0, 50)}..."`);
+
+        // Check again if cancellation was requested before sending
+        if (cancelSendingRequested) {
+          console.log(`Skipping email to ${recipient} due to force stop request`);
+          break;
+        }
 
         // Send the email with personalized content
         const messageId = await sendEmail(
@@ -418,33 +538,56 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
 
         results.push({ recipient, messageId, success: true });
         emailCount++;
+        successCount++; // Increment success count
 
         // Add a random delay between emails (1-5 seconds)
         const delay = Math.floor(Math.random() * 4000) + 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
 
         // Send progress update
-        event.sender.send('email:progress', {
+        mainWindow.webContents.send('email:progress', {
           current: emailCount,
           total: recipients.length,
           success: true,
-          recipient
+          recipient,
+          sent: successCount,
+          failed: failureCount
         });
+
+        // Add a small delay to allow the UI to update
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error) {
         logger.error(`Failed to send email to ${recipient}:`, error);
         results.push({ recipient, success: false, error: error.message });
         failureCount++;
 
         // Send progress update
-        event.sender.send('email:progress', {
+        mainWindow.webContents.send('email:progress', {
           current: emailCount,
           total: recipients.length,
           success: false,
           recipient,
-          error: error.message
+          error: error.message,
+          sent: successCount,
+          failed: failureCount
         });
+
+        // Add a small delay to allow the UI to update
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
+
+    // Reset the sending flags
+    isSendingEmails = false;
+    cancelSendingRequested = false;
+
+    // Notify the renderer that sending has completed
+    mainWindow.webContents.send('email:sending-status', {
+      status: 'completed',
+      sent: successCount,
+      failed: failureCount,
+      total: recipients.length
+    });
 
     return {
       success: true,
@@ -457,6 +600,17 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
       }
     };
   } catch (error) {
+    // Reset the sending flags
+    isSendingEmails = false;
+    cancelSendingRequested = false;
+
+    // Notify the renderer that sending has failed
+    mainWindow.webContents.send('email:sending-status', {
+      status: 'error',
+      error: error.message,
+      total: recipients?.length || 0
+    });
+
     logger.error('Batch email sending failed:', error);
     return { success: false, message: error.message };
   }
@@ -558,6 +712,96 @@ ipcMain.handle('template:personalize', (event, { template, email }) => {
     return { success: true, content: personalized };
   } catch (error) {
     logger.error('Failed to personalize template:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// Cancel email sending handler
+ipcMain.handle('email:cancel-sending', () => {
+  if (isSendingEmails) {
+    // Set the cancellation flag
+    cancelSendingRequested = true;
+
+    // Notify the renderer that cancellation has been requested
+    mainWindow.webContents.send('email:sending-status', {
+      status: 'cancelling',
+      message: 'Force stopping email campaign...'
+    });
+
+    // Log the cancellation request
+    console.log('FORCE STOP requested by user - email sending will be cancelled');
+
+    return { success: true, message: 'Force stop requested' };
+  } else {
+    return { success: false, message: 'No email sending in progress' };
+  }
+});
+
+// Recipient list management handlers
+ipcMain.handle('recipients:save-list', async (event, { name, recipients }) => {
+  try {
+    if (!name) {
+      return { success: false, message: 'List name is required' };
+    }
+
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      return { success: false, message: 'No recipients provided' };
+    }
+
+    // Get existing lists
+    const lists = store.get('recipientLists') || [];
+
+    // Check if we already have 2 lists and this would be a new one
+    const existingListIndex = lists.findIndex(list => list.name === name);
+    if (lists.length >= 2 && existingListIndex === -1) {
+      return { success: false, message: 'Maximum of 2 recipient lists allowed. Please delete one first.' };
+    }
+
+    // Update or add the list
+    if (existingListIndex !== -1) {
+      lists[existingListIndex] = { name, recipients };
+    } else {
+      lists.push({ name, recipients });
+    }
+
+    // Save to store
+    store.set('recipientLists', lists);
+
+    return { success: true, message: 'Recipient list saved successfully' };
+  } catch (error) {
+    console.error('Failed to save recipient list:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('recipients:get-lists', () => {
+  try {
+    const lists = store.get('recipientLists') || [];
+    return { success: true, lists };
+  } catch (error) {
+    console.error('Failed to get recipient lists:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('recipients:delete-list', (event, listName) => {
+  try {
+    if (!listName) {
+      return { success: false, message: 'List name is required' };
+    }
+
+    // Get existing lists
+    const lists = store.get('recipientLists') || [];
+
+    // Filter out the list to delete
+    const updatedLists = lists.filter(list => list.name !== listName);
+
+    // Save to store
+    store.set('recipientLists', updatedLists);
+
+    return { success: true, message: 'Recipient list deleted successfully' };
+  } catch (error) {
+    console.error('Failed to delete recipient list:', error);
     return { success: false, message: error.message };
   }
 });

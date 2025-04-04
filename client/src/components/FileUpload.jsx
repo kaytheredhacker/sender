@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import '../styles/FileUpload.css';
+import RecipientListManager from './RecipientListManager';
 
 const FileUpload = ({ onRecipientsChange, onNamesChange, onSubjectsChange }) => {
     const [recipients, setRecipients] = useState('');
@@ -69,6 +70,12 @@ const FileUpload = ({ onRecipientsChange, onNamesChange, onSubjectsChange }) => 
         }
     };
 
+    const handleLoadRecipients = (recipientsList) => {
+        const recipientsText = recipientsList.join('\n');
+        setRecipients(recipientsText);
+        onRecipientsChange(recipientsList);
+    };
+
     return (
         <div className="file-upload-container">
             <div className="grid-3">
@@ -99,6 +106,11 @@ const FileUpload = ({ onRecipientsChange, onNamesChange, onSubjectsChange }) => 
                     <div className="counter">
                         <span className="count-number">{recipients.split('\n').filter(Boolean).length}</span> recipients
                     </div>
+
+                    <RecipientListManager
+                        currentRecipients={recipients.split('\n').map(email => email.trim()).filter(Boolean)}
+                        onLoadRecipients={handleLoadRecipients}
+                    />
                 </div>
 
                 <div className="file-upload-box">

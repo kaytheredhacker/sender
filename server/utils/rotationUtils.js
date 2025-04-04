@@ -22,7 +22,7 @@ export const getCurrentSmtpConfig = (smtpConfigs, emailCount) => {
 
 /**
  * Gets the current template based on email count
- * Rotates templates every 50 emails
+ * Rotates templates for each recipient
  * @param {Array} templates - Array of email templates
  * @param {number} emailCount - Current email count
  * @returns {string} - Current template
@@ -32,8 +32,8 @@ export const getCurrentTemplate = (templates, emailCount) => {
     throw new Error('No templates available');
   }
 
-  // Rotate template every 50 emails
-  const index = Math.floor(emailCount / 50) % templates.length;
+  // Rotate template for each recipient
+  const index = emailCount % templates.length;
   return templates[index];
 };
 

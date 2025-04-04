@@ -830,7 +830,7 @@ h2 {
 .send-button {
   background: var(--gradient-primary);
   color: var(--text-primary);
-  width: 100%;
+  flex: 2;
   padding: 12px;
   font-size: 16px;
   font-weight: 700;
@@ -849,6 +849,79 @@ h2 {
   color: #666;
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.cancel-button {
+  background: linear-gradient(90deg, var(--neon-red), #990000);
+  color: var(--text-primary);
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: var(--spacing-lg);
+  position: relative;
+  overflow: hidden;
+  border: none;
+}
+
+.cancel-button:hover {
+  opacity: 0.9;
+}
+
+.cancel-button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.force-quit-button {
+  background: linear-gradient(90deg, #ff0000, #990000);
+  color: var(--text-primary);
+  flex: 1;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: var(--spacing-lg);
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #ff0000;
+  box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+  animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.8), 0 0 20px rgba(255, 0, 0, 0.5);
+  }
+  100% {
+    box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+  }
+}
+
+.force-quit-button:hover {
+  opacity: 0.9;
+  background: linear-gradient(90deg, #ff3333, #cc0000);
+}
+
+.force-quit-button:disabled {
+  background: #333;
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.5;
+  animation: none;
+  box-shadow: none;
+}
+
+.action-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  justify-content: space-between;
 }
 
 .add-config-button {
@@ -1327,4 +1400,103 @@ h2 {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--neon-purple);
+}
+
+/* Recipient List Manager */
+.recipient-list-manager {
+  background-color: var(--bg-form);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.recipient-list-manager h3 {
+  color: var(--text-primary);
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+  font-size: 18px;
+}
+
+.save-list-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: var(--spacing-md);
+}
+
+.list-name-input {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: var(--bg-input);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.save-list-button {
+  background: var(--neon-green);
+  color: var(--bg-primary);
+  border: none;
+  padding: 8px 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.saved-lists {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.saved-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid var(--neon-blue);
+}
+
+.list-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.list-name {
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.list-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.list-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.load-list-button {
+  background: var(--neon-blue);
+  color: var(--bg-primary);
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.delete-list-button {
+  background: var(--neon-red);
+  color: var(--bg-primary);
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.no-lists-message {
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: var(--spacing-sm);
 }
