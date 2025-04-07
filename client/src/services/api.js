@@ -29,6 +29,8 @@ export const deleteTemplate = async (templateId) => {
 
 export const sendEmails = async ({ recipients, names, subjects, templates, smtpConfigs }) => {
     try {
+        // The template personalization is handled on the server side in emailService.js
+        // We just need to pass all the data to the Electron main process
         return await window.electronAPI.sendBatchEmails({
             recipients,
             names,

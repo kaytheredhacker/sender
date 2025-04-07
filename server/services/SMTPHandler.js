@@ -1,93 +1,111 @@
-// SMTPHandler.js
-import { useState } from 'react';
-import { validateRotationRequirements } from '../utils/validationUtils.js';
-import { encryptCredentials as encrypt, decryptCredentials as decrypt } from '../utils/encryption.js';
+const { validateRotationRequirements } = require('../utils/validationUtils.js');
+const { encryptCredentials: encrypt, decryptCredentials: decrypt } = require('../utils/encryption.js');
+const fs = require('fs').promises;
+const path = require('path');
 
-const SMTPHandler = () => {
-  const [smtpConfig, setSmtpConfig] = useState(null);
-  const [isConfigured, setIsConfigured] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+// Config file path
+const CONFIG_PATH = path.join(process.cwd(), 'data', 'smtp-configs.json');
 
-  const checkExistingConfig = async () => {
-    setIsLoading(true);
+// Create a proper Node.js service instead of React hooks
+class SMTPHandler {
+  constructor() {
+    this.smtpConfigs = [];
+  }
+
+  async initialize() {
     try {
-        const response = await fetch('/api/smtp/configs');
-        if (!response.ok) throw new Error('Failed to fetch SMTP configurations');
-
-        const configs = await response.json();
-        if (!configs || !configs.length) {
-            throw new Error('At least one SMTP configuration is required');
-        }
-
-        setSmtpConfig(configs[0]); // Use the first configuration as default
-        setIsConfigured(true);
+      await this.loadConfigs();
+      if (this.smtpConfigs.length === 0) {
+        console.warn('No SMTP configurations found. Please add a new SMTP configuration.');
+      }
+      return { success: true, message: 'Configs loaded successfully' };
     } catch (error) {
-        console.error('Error fetching SMTP configurations:', error);
-    } finally {
-        setIsLoading(false);
+      console.error('Error initializing SMTP handler:', error);
+      return { success: false, message: 'Failed to initialize SMTP handler' };
     }
-  };
+  }
 
-  const saveSmtpConfig = async (config) => {
-    setIsLoading(true);
+  async loadConfigs() {
     try {
-      validateRotationRequirements(config.smtpConfigs, config.templates, config.names, config.subjects);
-      const response = await fetch('/api/smtp-config', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          host: config.host,
-          port: parseInt(config.port),
-          secure: config.secure || false,
-          auth: {
-            user: config.username,
-            pass: config.password
-          }
-        })
-      });
+      const dir = path.dirname(CONFIG_PATH);
+      await fs.mkdir(dir, { recursive: true });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save configuration');
+      const data = await fs.readFile(CONFIG_PATH, 'utf8');
+      this.smtpConfigs = JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        console.warn('SMTP config file does not exist. Initializing with empty config.');
+        this.smtpConfigs = [];
+        await this.saveConfigsToFile();
+      } else if (error instanceof SyntaxError) {
+        console.error('Error parsing SMTP config file. The file may be corrupted.');
+        this.smtpConfigs = [];
+        await this.saveConfigsToFile();
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  async saveConfigsToFile() {
+    const dir = path.dirname(CONFIG_PATH);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(CONFIG_PATH, JSON.stringify(this.smtpConfigs, null, 2));
+  }
+
+  async getConfigs() {
+    await this.loadConfigs();
+    return this.smtpConfigs;
+  }
+
+  async getConfigsWithDecryptedPasswords() {
+    await this.loadConfigs();
+    return this.smtpConfigs.map(config => ({
+      ...config,
+      auth: {
+        ...config.auth,
+        pass: decrypt(config.auth.pass)
+      }
+    }));
+  }
+
+  async saveConfig(config) {
+    try {
+      if (!config.host || !config.port || !config.username || !config.password) {
+        throw new Error('Missing required SMTP configuration fields');
       }
 
-      setSmtpConfig(config);
-      setIsConfigured(true);
+      const secureConfig = {
+        host: config.host,
+        port: parseInt(config.port),
+        secure: config.secure || false,
+        auth: {
+          user: config.username,
+          pass: encrypt(config.password)
+        }
+      };
+
+      await this.loadConfigs();
+      const existingIndex = this.smtpConfigs.findIndex(c => c.host === config.host && c.auth.user === config.username);
+
+      if (existingIndex >= 0) {
+        this.smtpConfigs[existingIndex] = secureConfig;
+      } else {
+        this.smtpConfigs.push(secureConfig);
+      }
+
+      await this.saveConfigsToFile();
+      console.log(`SMTP config for ${config.host} saved successfully.`);
+      return { success: true, message: 'SMTP configuration saved successfully' };
     } catch (error) {
       console.error('SMTP Config Error:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }
 
-  return {
-    smtpConfig,
-    isConfigured,
-    isLoading,
-    saveSmtpConfig,
-    checkExistingConfig
-  };
-};
-
-// Example usage
-const smtpConfigs = [
-    { host: 'smtp.example.com', port: 587, username: 'user', password: 'pass' }
-];
-
-try {
-    validateRotationRequirements(smtpConfigs, [], [], []);
-    console.log('Validation passed');
-} catch (error) {
-    console.error(error.message);
+  validateRotation(smtpConfigs, templates, names, subjects) {
+    return validateRotationRequirements(smtpConfigs, templates, names, subjects);
+  }
 }
 
-const encryptedPassword = encrypt('password123');
-console.log('Encrypted Password:', encryptedPassword);
-
-const decryptedPassword = decrypt(encryptedPassword);
-console.log('Decrypted Password:', decryptedPassword);
-
-export default SMTPHandler;
+module.exports = new SMTPHandler();

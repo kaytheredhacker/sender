@@ -1,12 +1,11 @@
-import nodemailer from 'nodemailer';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+const nodemailer = require('nodemailer');
+const fs = require('fs/promises');
+const path = require('path');
+const { fileURLToPath } = require('url');
+const { dirname } = require('path');
 
 // Fix __dirname equivalent for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+console.log(__filename); // This will work without any manual declaration
 
 class EmailSender {
     constructor() {
@@ -121,5 +120,4 @@ class EmailSender {
     }
 }
 
-// Convert to ES Module export
-export default EmailSender;
+module.exports = EmailSender;

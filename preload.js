@@ -4,6 +4,16 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Debug: Log that preload script is running
 console.log('Preload script is running');
 
+// Add a global error handler to catch and log any issues
+window.addEventListener('error', (event) => {
+  console.error('Uncaught error:', event.error);
+});
+
+// Add a DOM content loaded listener to ensure the page is fully loaded
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM fully loaded and parsed');
+});
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electronAPI', Object.freeze({

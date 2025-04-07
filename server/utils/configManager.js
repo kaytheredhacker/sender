@@ -1,5 +1,5 @@
-import Store from 'electron-store';
-import { encryptCredentials, decryptCredentials } from './encryption.js';
+const Store = require('electron-store');  // Replace import with require
+const { encryptCredentials, decryptCredentials } = require('./encryption.js');  // Replace import with require
 
 const store = new Store({
   name: 'smtp-configs',
@@ -7,7 +7,7 @@ const store = new Store({
   projectName: 'your-project-name'
 });
 
-export const configManager = {
+const configManager = {
   async read() {
     const configs = store.get('smtpConfigs') || [];
     return configs.map(config => ({
@@ -44,3 +44,6 @@ export const configManager = {
     }
   }
 };
+
+// Export using CommonJS syntax
+module.exports = { configManager };

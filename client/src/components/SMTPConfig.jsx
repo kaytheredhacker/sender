@@ -263,7 +263,7 @@ const SMTPConfig = ({ onConfigSave }) => {
       )}
 
       <div className="saved-configs-header">
-        <h4>SMTP Configurations</h4>
+        <h4>SMTP SETTINGS</h4>
         <button
           onClick={toggleForm}
           className={`add-smtp-button ${showForm ? 'active' : ''}`}

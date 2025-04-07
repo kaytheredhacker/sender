@@ -1,41 +1,34 @@
-// main.js - Fixed version using ES Modules
-import pkg from 'electron';
-const { app, BrowserWindow, ipcMain } = pkg;
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { Buffer } from 'buffer';
-import Store from 'electron-store';
-import nodemailer from 'nodemailer';
-import fs from 'fs/promises';
-import winston from 'winston';
-import randomstring from 'randomstring';
-import { validateSmtpConfig } from './server/utils/validationUtils.js';
-import { getCurrentSmtpConfig, getCurrentTemplate } from './server/utils/rotationUtils.js';
-import { sendEmail } from './server/services/emailService.js';
+// main.js - Using CommonJS modules
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const { Buffer } = require('buffer');
+const nodemailer = require('nodemailer');
+const fs = require('fs/promises');
+const winston = require('winston');
+const randomstring = require('randomstring');
+const { validateSmtpConfig } = require('./server/utils/validationUtils');
+const { getCurrentSmtpConfig, getCurrentTemplate } = require('./server/utils/rotationUtils');
+const { sendEmail } = require('./server/services/emailService');
+const Store = require('electron-store');
+const { contextBridge, ipcRenderer } = require('electron');
 
-// Convert __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Initialize stores with proper configuration
+// Initialize stores
 const store = new Store({
   name: 'smtp-configs',
   encryptionKey: 'your-secure-key',
-  clearInvalidConfig: true // Clear the store if the config is invalid
+  clearInvalidConfig: true
 });
 
 const templateStore = new Store({
   name: 'email-templates',
   encryptionKey: 'your-secure-key',
-  clearInvalidConfig: true, // Clear the store if the config is invalid
+  clearInvalidConfig: true,
   defaults: {
-    templates: [] // Set default value for templates
+    templates: []
   }
 });
 
-// Debug: Log store initialization
 console.log('Stores initialized');
-console.log('Template store path:', templateStore.path);
 
 // Initialize logger
 const logger = winston.createLogger({
@@ -62,6 +55,9 @@ let cancelSendingRequested = false;
 // Set development mode based on environment variable or default to production
 const isDev = process.env.NODE_ENV === 'development';
 
+// Enable debugging in production for troubleshooting
+const enableDebug = true; // Set to false after issues are resolved
+
 // In a standalone EXE, we don't need a separate server
 // All functionality is handled through IPC
 
@@ -81,10 +77,21 @@ const createWindow = () => {
       contextIsolation: true,
       preload: preloadPath,
       webSecurity: true, // Enable web security
-      allowRunningInsecureContent: false // Don't allow insecure content
+      allowRunningInsecureContent: false, // Don't allow insecure content
+      enableRemoteModule: false,
+      sandbox: false // Disable sandbox to ensure proper event handling
     },
     backgroundColor: '#121212', // Dark background color
-    icon: path.join(__dirname, 'assets', 'icon.ico') // Windows icon
+    icon: path.join(__dirname, 'assets', 'app.ico'), // Windows icon
+    // Ensure proper focus handling
+    focusable: true,
+    show: false // Don't show until ready-to-show
+  });
+
+  // Show window when ready to avoid blank screen issues
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    mainWindow.focus();
   });
 
   // Register window event handlers
@@ -113,8 +120,11 @@ const createWindow = () => {
       baseURLForDataURL: `file://${path.join(__dirname, 'client', 'build')}/`
     });
 
-    // Open DevTools in production for debugging
-    mainWindow.webContents.openDevTools();
+    // Open DevTools in production if debugging is enabled
+    if (enableDebug) {
+      mainWindow.webContents.openDevTools();
+      console.log('DevTools opened for debugging');
+    }
   }
 
   return mainWindow;
@@ -817,4 +827,13 @@ ipcMain.handle('smtp:delete-config', (event, configName) => {
     logger.error('Failed to delete SMTP config:', error);
     return { success: false, message: error.message };
   }
+});
+
+// Expose Electron API to renderer process
+contextBridge.exposeInMainWorld('electronAPI', {
+    onSendingStatus: (callback) => ipcRenderer.on('sending-status', callback),
+    offSendingStatus: (callback) => ipcRenderer.off('sending-status', callback),
+    onEmailProgress: (callback) => ipcRenderer.on('email-progress', callback),
+    offEmailProgress: (callback) => ipcRenderer.off('email-progress', callback),
+    cancelSendingEmails: () => ipcRenderer.invoke('cancel-sending-emails')
 });

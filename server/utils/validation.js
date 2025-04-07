@@ -1,10 +1,10 @@
-import DOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
+const DOMPurify = require('dompurify');  // Replace import with require
+const { JSDOM } = require('jsdom');  // Replace import with require
 
 const window = new JSDOM('').window;
 const purify = DOMPurify(window);
 
-export function validateEmailTemplate(template) {
+const validateEmailTemplate = (template) => {
     const required = ['subject', 'body'];
     for (const field of required) {
         if (!template[field]) {
@@ -21,7 +21,7 @@ export function validateEmailTemplate(template) {
     return template;
 }
 
-export function sanitizeInput(data) {
+const sanitizeInput = (data) => {
     if (typeof data === 'string') {
         return purify.sanitize(data);
     }
@@ -36,3 +36,8 @@ export function sanitizeInput(data) {
     
     return data;
 }
+
+module.exports = {
+    validateEmailTemplate,
+    sanitizeInput
+};

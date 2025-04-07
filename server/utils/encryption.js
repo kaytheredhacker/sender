@@ -1,9 +1,9 @@
-import crypto from 'crypto';
+const crypto = require('crypto');  
 
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32);
 const IV_LENGTH = 16;
 
-export function encryptCredentials(data) {
+const encryptCredentials = (data) => {
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
     
@@ -17,9 +17,9 @@ export function encryptCredentials(data) {
         encrypted: encrypted,
         authTag: authTag.toString('hex')
     };
-}
+};
 
-export function decryptCredentials(encryptedData) {
+const decryptCredentials = (encryptedData) => {
     const decipher = crypto.createDecipheriv(
         'aes-256-gcm',
         ENCRYPTION_KEY,
@@ -32,4 +32,9 @@ export function decryptCredentials(encryptedData) {
     decrypted += decipher.final('utf8');
     
     return JSON.parse(decrypted);
-}
+};
+
+module.exports = {
+    encryptCredentials,
+    decryptCredentials
+};

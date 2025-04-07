@@ -2,8 +2,8 @@
  * Placeholder Utilities
  * Handles replacement of placeholders in email templates
  */
-import randomstring from 'randomstring';
-import { Buffer } from 'buffer';
+const randomstring = require('randomstring');
+const { Buffer } = require('buffer');
 
 /**
  * Replaces placeholders in a template with actual values
@@ -11,7 +11,7 @@ import { Buffer } from 'buffer';
  * @param {Object} data - Object containing values for placeholders
  * @returns {string} - Template with placeholders replaced
  */
-export const replacePlaceholders = (template, data) => {
+const replacePlaceholders = (template, data) => {
   if (!template || typeof template !== 'string') {
     return '';
   }
@@ -55,7 +55,7 @@ export const replacePlaceholders = (template, data) => {
  * @param {string} template - Template string with placeholders
  * @returns {Array<string>} - Array of placeholder keys
  */
-export const extractPlaceholders = (template) => {
+const extractPlaceholders = (template) => {
   if (!template || typeof template !== 'string') {
     return [];
   }
@@ -70,4 +70,10 @@ export const extractPlaceholders = (template) => {
 
   // Return unique placeholders
   return [...new Set(placeholders)];
+};
+
+// Export functions using CommonJS syntax
+module.exports = {
+  replacePlaceholders,
+  extractPlaceholders
 };

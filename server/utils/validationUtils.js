@@ -3,7 +3,7 @@ const MAX_TEMPLATES = 10;
 const MAX_NAMES = 10;
 const MAX_SUBJECTS = 10;
 
-export const validateRotationRequirements = (smtpConfigs, templates, names, subjects) => {
+const validateRotationRequirements = (smtpConfigs, templates, names, subjects) => {
     if (!smtpConfigs.length) throw new Error('At least one SMTP configuration is required');
     if (!templates.length) throw new Error('At least one email template is required');
     if (!names.length) throw new Error('At least one sender name is required');
@@ -15,7 +15,7 @@ export const validateRotationRequirements = (smtpConfigs, templates, names, subj
     if (subjects.length > MAX_SUBJECTS) throw new Error(`Maximum ${MAX_SUBJECTS} subjects allowed`);
 };
 
-export const validateSmtpConfig = (config) => {
+const validateSmtpConfig = (config) => {
     const errors = [];
     if (!config.host) errors.push('Host is required');
     if (!config.port) errors.push('Port is required');
@@ -34,7 +34,7 @@ export const validateSmtpConfig = (config) => {
     };
 };
 
-export const validateEmailRequest = (request) => {
+const validateEmailRequest = (request) => {
     const errors = [];
     if (!request.to) errors.push('Recipient email is required');
     if (!request.subject) errors.push('Email subject is required');
@@ -46,6 +46,8 @@ export const validateEmailRequest = (request) => {
     };
 };
 
-export default validateEmailRequest;
-
-// File is now using ES module exports
+module.exports = {
+    validateRotationRequirements,
+    validateSmtpConfig,
+    validateEmailRequest
+};

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { emailService } from '../services/emailService';
+import { isElectron, callElectronAPI } from '../utils/electronUtils';
 import SMTPConfig from './SMTPConfig';
 import FileUpload from './FileUpload';
 import TemplateEditor from './TemplateEditor';
@@ -22,6 +23,11 @@ const EmailForm = () => {
     const [emailStats, setEmailStats] = useState({ sent: 0, failed: 0, total: 0 });
 
     useEffect(() => {
+        if (!isElectron()) {
+            console.log('Running in browser mode - Electron event listeners not available');
+            return;
+        }
+
         const handleSendingStatus = (event, data) => {
             console.log('Received sending status:', data);
 
@@ -100,15 +106,17 @@ const EmailForm = () => {
             }));
         };
 
-        // Add event listeners
-        window.electronAPI.onSendingStatus(handleSendingStatus);
-        window.electronAPI.onEmailProgress(handleEmailProgress);
+        // Add event listeners only if in Electron
+        if (window.electronAPI) {
+            window.electronAPI.onSendingStatus(handleSendingStatus);
+            window.electronAPI.onEmailProgress(handleEmailProgress);
 
-        // Clean up
-        return () => {
-            window.electronAPI.offSendingStatus(handleSendingStatus);
-            window.electronAPI.offEmailProgress(handleEmailProgress);
-        };
+            // Clean up
+            return () => {
+                window.electronAPI.offSendingStatus(handleSendingStatus);
+                window.electronAPI.offEmailProgress(handleEmailProgress);
+            };
+        }
     }, []);
 
     const handleConfigSave = async (configs) => {
@@ -163,16 +171,17 @@ const EmailForm = () => {
     const handleCancelSending = async () => {
         try {
             // Don't change the progress status, just update the message
-            // This preserves the progress bar while indicating cancellation
             setProgress(prevProgress => ({
                 ...prevProgress,
                 message: prevProgress.message + ' (FORCE STOPPING...)',
             }));
 
-            // Call the API to cancel sending
-            const result = await window.electronAPI.cancelSendingEmails();
-            if (!result.success) {
-                setError(result.message || 'Failed to cancel email sending');
+            if (isElectron()) {
+                // Call the API to cancel sending
+                const result = await callElectronAPI('cancelSendingEmails');
+                if (!result.success && !result.mockData) {
+                    setError(result.message || 'Failed to cancel email sending');
+                }
             }
 
             // Show a confirmation dialog to the user
@@ -187,7 +196,7 @@ const EmailForm = () => {
             <h2>Email Campaign Manager</h2>
 
             <div className="smtp-config">
-                <h3>SMTP Configuration</h3>
+                <h3></h3>
                 <SMTPConfig onConfigSave={handleConfigSave} />
             </div>
 

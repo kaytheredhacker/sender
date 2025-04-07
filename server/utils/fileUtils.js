@@ -3,17 +3,18 @@
  * Handles file operations for email templates and other resources
  */
 
-import fs from 'fs/promises';
-import path from 'path';
-import { Buffer } from 'buffer';
-import randomstring from 'randomstring';
+const fs = require('fs').promises;  // Replace import with require, using fs.promises
+const path = require('path');  // Replace import with require
+const { Buffer } = require('buffer');  // Replace import with require
+const randomstring = require('randomstring');  // Replace import with require
+
 
 /**
  * Reads file contents from the specified path
  * @param {string} filePath - Path to the file
  * @returns {Promise<string>} - File contents
  */
-export const readFile = async (filePath) => {
+const readFile = async (filePath) => {
   try {
     const data = await fs.readFile(filePath, 'utf8');
     return data;
@@ -29,7 +30,7 @@ export const readFile = async (filePath) => {
  * @param {string} email - Recipient email address
  * @returns {Promise<string>} - Personalized email content
  */
-export const readLetter = async (letterPath, email) => {
+const readLetter = async (letterPath, email) => {
   try {
     const template = await readFile(letterPath);
     return personalizeTemplate(template, email);
@@ -45,7 +46,7 @@ export const readLetter = async (letterPath, email) => {
  * @param {string} email - Recipient email address
  * @returns {string} - Personalized template
  */
-export const personalizeTemplate = (template, email) => {
+const personalizeTemplate = (template, email) => {
   if (!template) return null;
 
   const [emailUsername, domain] = email.split('@');
@@ -61,4 +62,10 @@ export const personalizeTemplate = (template, email) => {
     .replace(/TECHGIRLEMAIL64/g, toBase64(email))
     .replace(/TECHGIRLRND/g, randomstring.generate({ length: 5, charset: 'alphabetic' }))
     .replace(/TECHGIRLRNDLONG/g, randomstring.generate({ length: 50, charset: 'alphabetic' }));
+};
+
+module.exports = {
+  readFile,
+  readLetter,
+  personalizeTemplate
 };

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { isElectron, callElectronAPI, getMockData } from '../utils/electronUtils';
 import '../styles/TemplateEditor.css';
 
 const TemplateEditor = ({ onTemplateChange }) => {
@@ -9,6 +10,7 @@ const TemplateEditor = ({ onTemplateChange }) => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+    const [previewEmail, setPreviewEmail] = useState('');
 
     const variables = [
         { name: 'GIRLUSER', description: 'Username part of email' },
@@ -21,31 +23,83 @@ const TemplateEditor = ({ onTemplateChange }) => {
         { name: 'TECHGIRLRNDLONG', description: 'Random 50-char string' }
     ];
 
-    useEffect(() => {
-        loadTemplates();
-    }, []);
-
-    const loadTemplates = async () => {
-        try {
-            // Debug: Check if window.electronAPI exists
-            console.log('Loading templates, window.electronAPI:', window.electronAPI);
-
-            if (window.electronAPI && window.electronAPI.getAllTemplates) {
-                const result = await window.electronAPI.getAllTemplates();
-                if (result.success) {
-                    console.log('Templates loaded:', result.templates);
-                    setSavedTemplates(result.templates || []);
-                } else {
-                    throw new Error(result.message || 'Failed to load templates');
-                }
+    // Function to process template variables for a specific recipient
+    const processTemplateForRecipient = (templateContent, email) => {
+        if (!templateContent || !email) return templateContent;
+        
+        let processedTemplate = templateContent;
+        
+        // Extract username and domain parts
+        const [username, domain] = email.split('@');
+        
+        // Process domain parts if available
+        let domainName = '';
+        let domainExt = '';
+        
+        if (domain) {
+            // Handle domains with or without dots
+            if (domain.includes('.')) {
+                const domainParts = domain.split('.');
+                domainName = domainParts[0];
+                domainExt = domainParts.slice(1).join('.');
             } else {
-                throw new Error('Electron API not available for loading templates');
+                // For domains without dots (like localhost)
+                domainName = domain;
+            }
+        }
+        
+        // Generate random strings
+        const randomShort = Math.random().toString(36).substring(2, 7);
+        const randomLong = Array(50).fill(0).map(() => 
+            Math.random().toString(36).charAt(2)).join('');
+        
+        // Base64 encode the email
+        const emailBase64 = btoa(email);
+        
+        // Replace all variables
+        processedTemplate = processedTemplate
+            .replace(/GIRLUSER/g, username || '')
+            .replace(/GIRLDOMC/g, domainName.toUpperCase() || '')
+            .replace(/GIRLdomain/g, domainName || '')
+            .replace(/GIRLDOMAIN/g, domain || '')
+            .replace(/TECHGIRLEMAIL/g, email)
+            .replace(/TECHGIRLEMAIL64/g, emailBase64)
+            .replace(/TECHGIRLRND/g, randomShort)
+            .replace(/TECHGIRLRNDLONG/g, randomLong);
+        
+        return processedTemplate;
+    };
+
+    const loadTemplates = useCallback(async () => {
+        try {
+            console.log('Loading templates, in Electron:', isElectron());
+
+            let result;
+            if (isElectron()) {
+                result = await callElectronAPI('getAllTemplates');
+            } else {
+                // Mock data for browser development
+                result = {
+                    success: true,
+                    templates: getMockData('templates')
+                };
+            }
+
+            if (result.success) {
+                console.log('Templates loaded:', result.templates);
+                setSavedTemplates(result.templates || []);
+            } else if (!result.mockData) {
+                throw new Error(result.message || 'Failed to load templates');
             }
         } catch (err) {
             console.error('Load templates error:', err);
             setError('Failed to load templates: ' + err.message);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadTemplates();
+    }, [loadTemplates]);
 
     const handleSave = async () => {
         if (!templateName.trim() || !template.trim()) {
@@ -57,32 +111,49 @@ const TemplateEditor = ({ onTemplateChange }) => {
         setError('');
 
         try {
-            // Debug: Check if window.electronAPI exists
-            console.log('window.electronAPI:', window.electronAPI);
-
-            // Try direct access to window.electronAPI
-            if (window.electronAPI && window.electronAPI.saveTemplate) {
-                const result = await window.electronAPI.saveTemplate({
+            // Extract variables used in this template
+            const usedVariables = variables
+                .filter(v => template.includes(v.name))
+                .map(v => v.name);
+                
+            let result;
+            if (isElectron()) {
+                result = await callElectronAPI('saveTemplate', {
                     name: templateName,
-                    content: template
+                    content: template,
+                    variables: usedVariables // Send variables info to backend
+                });
+            } else {
+                // Mock successful save for browser development
+                result = {
+                    success: true,
+                    template: { 
+                        id: Date.now(), 
+                        name: templateName, 
+                        content: template,
+                        variables: usedVariables
+                    }
+                };
+            }
+
+            if (result.success) {
+                // Update local state with new template
+                setSavedTemplates(prev => {
+                    const newTemplates = [...prev, { 
+                        name: templateName, 
+                        content: template, 
+                        id: result.template?.id || Date.now(),
+                        variables: usedVariables
+                    }];
+                    return newTemplates.slice(-4); // Keep only 4 most recent
                 });
 
-                if (result.success) {
-                    // Update local state with new template
-                    setSavedTemplates(prev => {
-                        const newTemplates = [...prev, { name: templateName, content: template, id: result.template?.id || Date.now() }];
-                        return newTemplates.slice(-4); // Keep only 4 most recent
-                    });
-
-                    setTemplateName('');
-                    setTemplate('');
-                    onTemplateChange(template);
-                } else {
-                    throw new Error(result.message || 'Failed to save template');
-                }
-            } else {
-                throw new Error('Electron API not available. window.electronAPI: ' +
-                    (window.electronAPI ? 'exists but saveTemplate is missing' : 'is undefined'));
+                setTemplateName('');
+                setTemplate('');
+                // Pass template, variables, and the processing function
+                onTemplateChange(template, usedVariables, processTemplateForRecipient);
+            } else if (!result.mockData) {
+                throw new Error(result.message || 'Failed to save template');
             }
         } catch (err) {
             console.error('Save template error:', err);
@@ -95,7 +166,11 @@ const TemplateEditor = ({ onTemplateChange }) => {
     const handleTemplateSelect = (selectedTemplate) => {
         setTemplate(selectedTemplate.content);
         setTemplateName(selectedTemplate.name);
-        onTemplateChange(selectedTemplate.content);
+        // Pass template, variables, and the processing function
+        const usedVariables = variables
+            .filter(v => selectedTemplate.content.includes(v.name))
+            .map(v => v.name);
+        onTemplateChange(selectedTemplate.content, usedVariables, processTemplateForRecipient);
     };
 
     const handleDeleteTemplate = async (e, templateId) => {
@@ -103,15 +178,16 @@ const TemplateEditor = ({ onTemplateChange }) => {
         if (window.confirm('Are you sure you want to delete this template?')) {
             setIsDeleting(true);
             try {
-                if (window.electronAPI && window.electronAPI.deleteTemplate) {
-                    const result = await window.electronAPI.deleteTemplate(templateId);
+                if (isElectron()) {
+                    const result = await callElectronAPI('deleteTemplate', templateId);
                     if (result.success) {
                         await loadTemplates();
-                    } else {
+                    } else if (!result.mockData) {
                         throw new Error(result.message || 'Failed to delete template');
                     }
                 } else {
-                    throw new Error('Electron API not available for deleting templates');
+                    // Mock successful delete for browser development
+                    setSavedTemplates(prev => prev.filter(t => t.id !== templateId));
                 }
             } catch (err) {
                 console.error('Delete template error:', err);
@@ -180,10 +256,21 @@ const TemplateEditor = ({ onTemplateChange }) => {
 
                 {showPreview ? (
                     <div className="preview-container">
-                        <div className="preview-header">Email Preview</div>
+                        <div className="preview-header">
+                            <span>Email Preview</span>
+                            <input
+                                type="text"
+                                value={previewEmail}
+                                onChange={(e) => setPreviewEmail(e.target.value)}
+                                placeholder="Enter email for preview"
+                                className="preview-email-input"
+                            />
+                        </div>
                         <div
                             className="preview-content"
-                            dangerouslySetInnerHTML={{ __html: template }}
+                            dangerouslySetInnerHTML={{ 
+                                __html: processTemplateForRecipient(template, previewEmail) 
+                            }}
                         />
                     </div>
                 ) : (
@@ -192,13 +279,19 @@ const TemplateEditor = ({ onTemplateChange }) => {
                         <textarea
                             value={template}
                             onChange={(e) => {
-                                setTemplate(e.target.value);
-                                onTemplateChange(e.target.value);
+                                const newTemplate = e.target.value;
+                                setTemplate(newTemplate);
+                                // Extract variables used in this template
+                                const usedVariables = variables
+                                    .filter(v => newTemplate.includes(v.name))
+                                    .map(v => v.name);
+                                // Pass template, variables, and the processing function
+                                onTemplateChange(newTemplate, usedVariables, processTemplateForRecipient);
                             }}
                             spellCheck="false"
                             autoComplete="off"
                             className="code-input"
-                            placeholder="Enter your HTML template here..."
+                            placeholder="Enter your HTML code here..."
                         />
                     </div>
                 )}
@@ -233,6 +326,10 @@ const TemplateEditor = ({ onTemplateChange }) => {
             </div>
         </div>
     );
+};
+
+TemplateEditor.defaultProps = {
+  onTemplateChange: () => {}, // Default to a no-op function
 };
 
 export default TemplateEditor;

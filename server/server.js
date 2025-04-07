@@ -1,36 +1,30 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import nodemailer from 'nodemailer';
-// import fs from 'fs';
-import path from 'path';
-import randomstring from 'randomstring';
-import { fileURLToPath } from 'url';
-import { validateRotationRequirements, validateSmtpConfig, validateEmailRequest } from './utils/validationUtils.js';
-import { errorHandler } from './utils/errorUtils.js';
-import { replacePlaceholders } from './utils/placeholderUtils.js';
-import { rotateSmtp } from './utils/rotationUtils.js';
-import { configManager } from './utils/configManager.js';
-import { validateEmailTemplate } from './utils/validation.js';
-import { encryptCredentials, decryptCredentials } from './utils/encryption.js';
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
+// const fs = require('fs');
+const path = require('path');
+const randomstring = require('randomstring');
+const { fileURLToPath } = require('url');
+const { validateRotationRequirements, validateSmtpConfig, validateEmailRequest } = require('./utils/validationUtils');
+const { errorHandler } = require('./utils/errorUtils');
+const { replacePlaceholders } = require('./utils/placeholderUtils');
+const { rotateSmtp } = require('./utils/rotationUtils');
+const { configManager } = require('./utils/configManager');
+const { validateEmailTemplate } = require('./utils/validation');
+const { encryptCredentials, decryptCredentials } = require('./utils/encryption');
 
-// Import routes
-import smtpRoutes from './routes/smtpRoutes.js';
-import emailRoutes from './routes/emailRoutes.js';
+const smtpRoutes = require('./routes/smtpRoutes');
+const emailRoutes = require('./routes/emailRoutes');
 
-// Get __dirname equivalent in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
 
 const app = express();
 
-// Load environment variables from .env
 dotenv.config();
 
-// Import Winston logger from alert service
-import { alertService } from './services/alertService.js';
+const { alertService }  = require('./services/alertService.js');
 
-// Logging Utility
 const logger = {
     info: (message) => alertService.logger.info(message),
     error: (message, error) => alertService.alertError(error, { context: message }),
@@ -41,11 +35,11 @@ app.use(cors({
     origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true // Important for cookies/auth
+    credentials: true 
 }));
 
-app.use(express.json()); // Parses JSON requests
-app.use(express.urlencoded({ extended: true })); // Parses URL-encoded data
+app.use(express.json()); 
+app.use(express.urlencoded({ extended: true })); 
 
 // Routes (Example)
 app.get('/', (req, res) => {
@@ -83,7 +77,6 @@ app.use('/api/smtp', smtpRoutes);
 app.use('/api/email', emailRoutes);
 app.use(cors());
 
-// 🔹 Fetch SMTP Configurations
 app.get('/api/smtp/configs', async (req, res) => {
     try {
         const configs = configManager.read();
@@ -94,7 +87,6 @@ app.get('/api/smtp/configs', async (req, res) => {
     }
 });
 
-// 🔹 Save SMTP Configuration (Encrypted)
 app.post('/api/smtp/config', async (req, res) => {
     try {
         const config = req.body;
@@ -127,7 +119,6 @@ app.post('/api/smtp/config', async (req, res) => {
     }
 });
 
-// 🔹 Save Email Templates
 const emailTemplates = [];
 
 app.post('/api/email/templates', (req, res) => {
@@ -155,7 +146,6 @@ app.delete('/api/email/templates/:id', (req, res) => {
     res.json({ success: true, message: 'Template deleted successfully' });
 });
 
-// 🔹 Validate and Send Emails
 app.post('/api/send-email', async (req, res) => {
     const { smtpConfigs, templates, names, subjects, recipients } = req.body;
 
@@ -199,10 +189,8 @@ app.post('/api/send-email', async (req, res) => {
     }
 });
 
-// 🔹 Global Error Handler
 app.use(errorHandler);
 
-// 🔹 Server Setup
 const startServer = async () => {
     try {
         const server = app.listen(PORT, () => {
@@ -218,4 +206,4 @@ const startServer = async () => {
 
 startServer();
 
-export default app;
+module.exports = app;

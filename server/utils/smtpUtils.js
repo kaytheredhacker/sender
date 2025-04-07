@@ -1,11 +1,11 @@
-import nodemailer from 'nodemailer';
+const nodemailer = require('nodemailer');
 
 /**
  * Validates SMTP configuration
  * @param {Object} config - SMTP configuration object
  * @returns {Object} - Validation result with isValid and message
  */
-export const validateSmtpConfig = (config) => {
+const validateSmtpConfig = (config) => {
   if (!config.host || !config.port || !config.username || !config.password) {
     return { isValid: false, message: 'All SMTP fields are required' };
   }
@@ -17,7 +17,7 @@ export const validateSmtpConfig = (config) => {
  * @param {Object} config - SMTP configuration object
  * @returns {Object} - Nodemailer transporter
  */
-export const createTransporter = async (config) => {
+const createTransporter = async (config) => {
   try {
     console.log('Creating transporter with config:', {
       host: config.host,
@@ -77,3 +77,8 @@ export const createTransporter = async (config) => {
 };
 
 // getCurrentSmtpConfig has been moved to rotationUtils.js
+
+module.exports = {
+    validateSmtpConfig,
+    createTransporter
+};

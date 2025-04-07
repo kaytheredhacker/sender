@@ -2,15 +2,16 @@
  * SMTP Routes
  * Handles API endpoints for SMTP configuration
  */
-import express from 'express';
-import { validateSmtpConfig } from '../utils/smtpUtils.js'; // Corrected path
-import { configManager } from '../utils/configManager.js';
+const express = require('express');
+const { validateSmtpConfig } = require('../utils/smtpUtils');
+const { configManager } = require('../utils/configManager');
 
 const router = express.Router();
 
 // Define your routes here
 
-export default router;
+// Change from ES modules export to CommonJS export
+module.exports = router;
 
 
 /**

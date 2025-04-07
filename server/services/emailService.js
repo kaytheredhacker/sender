@@ -1,9 +1,10 @@
-import nodemailer from 'nodemailer';
-import randomstring from 'randomstring';
-import { Buffer } from 'buffer';
-import { alertService } from './alertService.js';
-import { createTransporter } from '../utils/smtpUtils.js';
-import { delay } from '../utils/templateUtils.js';
+const nodemailer = require('nodemailer');
+const randomstring = require('randomstring');
+const { Buffer } = require('buffer');
+const { alertService } = require('./alertService');
+const { createTransporter } = require('../utils/smtpUtils');
+const { delay } = require('../utils/templateUtils');
+
 
 class EmailService {
     constructor() {
@@ -300,9 +301,10 @@ class EmailService {
     }
 }
 
-export const emailService = new EmailService();
+// Change from ES modules export to CommonJS
+const emailService = new EmailService();
 
-export const sendEmail = async (config, to, fromName, subject, htmlContent) => {
+const sendEmail = async (config, to, fromName, subject, htmlContent) => {
     try {
         console.log('sendEmail called with config:', {
             ...config,
@@ -339,3 +341,5 @@ export const sendEmail = async (config, to, fromName, subject, htmlContent) => {
         throw error; // Re-throw to be handled by the caller
     }
 };
+
+module.exports = { emailService, sendEmail };

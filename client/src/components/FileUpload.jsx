@@ -14,32 +14,54 @@ const FileUpload = ({ onRecipientsChange, onNamesChange, onSubjectsChange }) => 
         const file = event.target.files[0];
         if (!file) return;
 
+        if (!file.name.endsWith('.txt')) {
+            setError('Please upload a .txt file');
+            return;
+        }
+        setError(null);
         processFile(file);
     };
 
     const processFile = (file) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-            const content = e.target.result.trim();
-            setRecipients(content);
-            onRecipientsChange(content.split('\n').map(email => email.trim()).filter(Boolean));
+            try {
+                const content = e.target.result.trim();
+                setRecipients(content);
+                onRecipientsChange(content.split('\n').map(email => email.trim()).filter(Boolean));
+                setError(null);
+            } catch (err) {
+                setError('Error processing file: ' + err.message);
+            }
+        };
+        reader.onerror = () => {
+            setError('Failed to read the file');
         };
         reader.readAsText(file);
     };
-
+    
     // Drag and drop handlers
     const handleDragOver = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(true);
     };
 
     const handleDragLeave = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
+    };
+
+    const handleDragEnter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
     };
 
     const handleDrop = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         setIsDragging(false);
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -83,6 +105,7 @@ const FileUpload = ({ onRecipientsChange, onNamesChange, onSubjectsChange }) => 
                     className={`file-upload-box ${isDragging ? 'dragging' : ''}`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
+                    onDragEnter={handleDragEnter}
                     onDrop={handleDrop}
                 >
                     <label className="upload-label">Recipients</label>

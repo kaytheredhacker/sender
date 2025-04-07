@@ -324,3 +324,19 @@
 .code-input:matches(:not(:empty)) {
     color: #6a9955;
 }
+
+/* Add this to your existing CSS file */
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+}
+
+.preview-email-input {
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 200px;
+}

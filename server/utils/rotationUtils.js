@@ -10,7 +10,7 @@
  * @param {number} emailCount - Current email count
  * @returns {Object} - Current SMTP configuration
  */
-export const getCurrentSmtpConfig = (smtpConfigs, emailCount) => {
+const getCurrentSmtpConfig = (smtpConfigs, emailCount) => {
   if (!smtpConfigs || !Array.isArray(smtpConfigs) || smtpConfigs.length === 0) {
     throw new Error('No SMTP configurations available');
   }
@@ -27,7 +27,7 @@ export const getCurrentSmtpConfig = (smtpConfigs, emailCount) => {
  * @param {number} emailCount - Current email count
  * @returns {string} - Current template
  */
-export const getCurrentTemplate = (templates, emailCount) => {
+ const getCurrentTemplate = (templates, emailCount) => {
   if (!templates || !Array.isArray(templates) || templates.length === 0) {
     throw new Error('No templates available');
   }
@@ -44,11 +44,18 @@ export const getCurrentTemplate = (templates, emailCount) => {
  * @param {number} interval - Rotation interval
  * @returns {Array} - Array containing the next SMTP configuration
  */
-export const rotateSmtp = (configs, currentIndex = 0, interval = 100) => {
+ const rotateSmtp = (configs, currentIndex = 0, interval = 100) => {
   if (!configs || !Array.isArray(configs) || configs.length === 0) {
     throw new Error('No SMTP configurations available');
   }
 
   const nextIndex = Math.floor(currentIndex / interval) % configs.length;
   return [configs[nextIndex]];
+};
+
+
+module.exports = {
+    getCurrentSmtpConfig,
+    getCurrentTemplate,
+    rotateSmtp
 };

@@ -1,7 +1,7 @@
-import express from 'express';
-import { createTransporter } from '../utils/smtpUtils.js';
-import { configManager } from '../utils/configManager.js';
-import { replacePlaceholders } from "../utils/placeholderUtils.js";
+const express = require('express');
+const { createTransporter } = require('../utils/smtpUtils');
+const { configManager } = require('../utils/configManager');
+const { replacePlaceholders } = require('../utils/placeholderUtils');
 
 const router = express.Router();
 
@@ -34,14 +34,20 @@ router.post('/send', async (req, res) => {
     // Create transporter
     const transporter = createTransporter(config);
     
+    // Enhanced placeholder processing with logging
+    console.log('Original HTML content:', html?.substring(0, 100) + '...');
+    console.log('Placeholders:', placeholders);
+    
     // Process email content with placeholders
     const processedHtml = html ? replacePlaceholders(html, placeholders || {}) : undefined;
     const processedText = text ? replacePlaceholders(text, placeholders || {}) : undefined;
     const processedSubject = subject ? replacePlaceholders(subject, placeholders || {}) : 'No Subject';
     
+    console.log('Processed HTML content:', processedHtml?.substring(0, 100) + '...');
+    
     // Send email
     const info = await transporter.sendMail({
-      from: config.from || config.user,
+      from: config.from || config.username, // Changed from config.user to config.username for consistency
       to,
       subject: processedSubject,
       html: processedHtml,
@@ -61,4 +67,5 @@ router.post('/send', async (req, res) => {
   }
 });
 
-export default router;
+// Change from ES modules export to CommonJS export
+module.exports = router;

@@ -1,8 +1,9 @@
-import winston from 'winston';
-import 'winston-daily-rotate-file';
-import path from 'path';
-import fs from 'fs/promises';
-import { Mutex } from 'async-mutex';
+const winston = require('winston');
+require('winston-daily-rotate-file');
+const path = require('path');
+const fs = require('fs/promises');
+const { Mutex } = require('async-mutex');
+const { app } = require('electron'); // Electron's app module for platform-specific paths
 
 class AlertService {
     constructor() {
@@ -14,16 +15,16 @@ class AlertService {
             ),
             transports: [
                 new winston.transports.DailyRotateFile({
-                    filename: path.join(process.env.APPDATA || process.cwd(), 'senderexe', 'logs', 'error-%DATE%.log'),
+                    filename: path.join(this.getLogsPath(), 'error-%DATE%.log'),
                     datePattern: 'YYYY-MM-DD',
-                    maxSize: '10m', // Reduced max size
-                    maxFiles: '7d' // Reduced retention period
+                    maxSize: '10m',
+                    maxFiles: '7d'
                 }),
                 new winston.transports.DailyRotateFile({
-                    filename: path.join(process.env.APPDATA || process.cwd(), 'senderexe', 'logs', 'combined-%DATE%.log'),
+                    filename: path.join(this.getLogsPath(), 'combined-%DATE%.log'),
                     datePattern: 'YYYY-MM-DD',
-                    maxSize: '10m', // Reduced max size
-                    maxFiles: '7d' // Reduced retention period
+                    maxSize: '10m',
+                    maxFiles: '7d'
                 })
             ]
         });
@@ -31,8 +32,19 @@ class AlertService {
         this.historyMutex = new Mutex();
     }
 
+    // Get the logs path based on the platform
+    getLogsPath() {
+        if (app && app.getPath) {
+            // For Electron, use the userData path
+            return path.join(app.getPath('userData'), 'senderexe', 'logs');
+        } else {
+            // Fallback for non-Electron environments
+            return path.join(process.cwd(), 'senderexe', 'logs');
+        }
+    }
+
     async init() {
-        const logsDir = path.join(process.env.APPDATA || process.cwd(), 'senderexe', 'logs');
+        const logsDir = this.getLogsPath();
         try {
             await fs.mkdir(logsDir, { recursive: true });
             console.log('Logs directory created successfully.');
@@ -49,7 +61,6 @@ class AlertService {
                 message: error?.message || 'Unknown error',
                 stack: error?.stack || 'No stack trace available',
                 code: error?.code || 'N/A'
-          
             },
             context
         };
@@ -68,20 +79,20 @@ class AlertService {
 
     async saveErrorToHistory(errorLog) {
         try {
-            const historyPath = path.join(process.env.APPDATA || process.cwd(), 'senderexe', 'logs', 'error-history.json');
+            const historyPath = path.join(this.getLogsPath(), 'error-history.json');
             const logEntry = JSON.stringify(errorLog) + '\n';
 
             // Append the new error log to the file
             await fs.appendFile(historyPath, logEntry);
         } catch (error) {
             console.error('Failed to save error to history:', error);
-            throw error; // Propagate the error
+            throw error;
         }
     }
 
     async getErrorHistory() {
         try {
-            const historyPath = path.join(process.cwd(), 'logs', 'error-history.json');
+            const historyPath = path.join(this.getLogsPath(), 'error-history.json');
             const data = await fs.readFile(historyPath, 'utf-8');
             return JSON.parse(data);
         } catch (error) {
@@ -91,16 +102,19 @@ class AlertService {
 
     async clearErrorHistory() {
         try {
-            const historyPath = path.join(process.cwd(), 'logs', 'error-history.json');
+            const historyPath = path.join(this.getLogsPath(), 'error-history.json');
             await fs.writeFile(historyPath, JSON.stringify([], null, 2));
         } catch (error) {
             console.error('Failed to clear error history:', error);
-            throw error; // Propagate the error
+            throw error;
         }
     }
 }
 
-export const alertService = new AlertService();
+// Change from ES modules export to CommonJS export
+const alertService = new AlertService();
 alertService.init().catch((error) => {
     console.error('Failed to initialize AlertService:', error);
 });
+
+module.exports = { alertService };

@@ -56,16 +56,26 @@ const cleanupOldLogs = () => {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   
   fs.readdir(logsDir, (err, files) => {
-    if (err) return;
+    if (err) {
+      logger.error('Error reading logs directory:', err);
+      return;
+    }
     
     files.forEach(file => {
       const filePath = path.join(logsDir, file);
       fs.stat(filePath, (err, stats) => {
-        if (err) return;
-        
+        if (err) {
+          logger.error(`Error reading stats for file ${filePath}:`, err);
+          return;
+        }
+
         if (stats.isFile() && stats.mtime < thirtyDaysAgo) {
           fs.unlink(filePath, err => {
-            if (err) console.error(`Failed to delete old log file: ${filePath}`, err);
+            if (err) {
+              logger.error(`Failed to delete old log file: ${filePath}`, err);
+            } else {
+              logger.info(`Deleted old log file: ${filePath}`);
+            }
           });
         }
       });
@@ -73,10 +83,6 @@ const cleanupOldLogs = () => {
   });
 };
 
-// Run cleanup once a day
+// Run cleanup once a day and also immediately at startup
 setInterval(cleanupOldLogs, 24 * 60 * 60 * 1000);
-// Also run it once at startup
 cleanupOldLogs();
-
-// Export the logger
-module.exports = logger;
