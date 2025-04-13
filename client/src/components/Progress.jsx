@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/Progress.css';
 
-const Progress = ({ status, message, current, total }) => {
+const Progress = ({ status, message, current, total, percentage }) => {
     const getStatusClass = () => {
         switch (status) {
             case 'sending':
@@ -14,6 +14,9 @@ const Progress = ({ status, message, current, total }) => {
                 return 'progress-idle';
         }
     };
+
+    // Calculate percentage if not provided
+    const calculatedPercentage = percentage || (total > 0 ? Math.round((current / total) * 100) : 0);
 
     return (
         <div className={`progress-container ${getStatusClass()}`}>
@@ -29,16 +32,16 @@ const Progress = ({ status, message, current, total }) => {
                 <div
                     className="progress-fill"
                     style={{
-                        width: status === 'sending' && total > 0 ? `${Math.min(100, Math.round((current / total) * 100))}%` :
+                        width: status === 'sending' && total > 0 ? `${Math.min(100, calculatedPercentage)}%` :
                                status === 'complete' ? '100%' :
-                               status === 'cancelled' ? `${Math.min(100, Math.round((current / total) * 100))}%` : '0%',
+                               status === 'cancelled' ? `${Math.min(100, calculatedPercentage)}%` : '0%',
                         transition: 'width 0.3s ease-in-out'
                     }}
                 ></div>
             </div>
             {status === 'sending' && total > 0 && (
                 <div className="progress-percentage">
-                    {Math.round((current / total) * 100)}%
+                    {calculatedPercentage}%
                 </div>
             )}
         </div>

@@ -137,9 +137,11 @@
 /* Progress percentage */
 .progress-percentage {
     text-align: center;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: bold;
     color: #00ff00;
     margin-top: -15px;
     margin-bottom: 10px;
+    text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+    animation: pulse 1.5s infinite;
 }

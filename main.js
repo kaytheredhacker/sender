@@ -55,8 +55,7 @@ let cancelSendingRequested = false;
 // Set development mode based on environment variable or default to production
 const isDev = process.env.NODE_ENV === 'development';
 
-// Enable debugging in production for troubleshooting
-const enableDebug = true; // Set to false after issues are resolved
+// DevTools completely disabled in this application
 
 // In a standalone EXE, we don't need a separate server
 // All functionality is handled through IPC
@@ -79,7 +78,8 @@ const createWindow = () => {
       webSecurity: true, // Enable web security
       allowRunningInsecureContent: false, // Don't allow insecure content
       enableRemoteModule: false,
-      sandbox: false // Disable sandbox to ensure proper event handling
+      sandbox: false, // Disable sandbox to ensure proper event handling
+      devTools: false // Completely disable DevTools
     },
     backgroundColor: '#121212', // Dark background color
     icon: path.join(__dirname, 'assets', 'app.ico'), // Windows icon
@@ -109,7 +109,7 @@ const createWindow = () => {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
-    mainWindow.webContents.openDevTools();
+    // DevTools disabled in all environments
   } else {
     // Use file protocol with correct path
     const indexPath = path.join(__dirname, 'client', 'build', 'index.html');
@@ -119,12 +119,7 @@ const createWindow = () => {
     mainWindow.loadFile(indexPath, {
       baseURLForDataURL: `file://${path.join(__dirname, 'client', 'build')}/`
     });
-
-    // Open DevTools in production if debugging is enabled
-    if (enableDebug) {
-      mainWindow.webContents.openDevTools();
-      console.log('DevTools opened for debugging');
-    }
+    // DevTools completely disabled
   }
 
   return mainWindow;
@@ -150,6 +145,29 @@ app.whenReady().then(() => {
   } else {
     console.log('Template store already initialized with:', templateStore.get('templates'));
   }
+
+  // Disable keyboard shortcuts for DevTools and context menu
+  app.on('web-contents-created', (event, contents) => {
+    // Disable keyboard shortcuts
+    contents.on('before-input-event', (event, input) => {
+      // Prevent F12, Ctrl+Shift+I, Cmd+Option+I, Ctrl+Shift+J, Cmd+Option+J
+      const {key, control, meta, shift, alt} = input;
+      if (
+        (key === 'F12') ||
+        (control && shift && key === 'I') ||
+        (meta && alt && key === 'I') ||
+        (control && shift && key === 'J') ||
+        (meta && alt && key === 'J')
+      ) {
+        event.preventDefault();
+      }
+    });
+
+    // Disable context menu (right-click menu)
+    contents.on('context-menu', (e, params) => {
+      e.preventDefault();
+    });
+  });
 
   createWindow();
 });
@@ -420,6 +438,14 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
         const template = getCurrentTemplate(templates, emailCount);
         console.log(`Using template #${emailCount % templates.length + 1}: "${template.name || 'Unnamed'}" for recipient ${recipient}`);
 
+        // Log template details including variables
+        console.log('Template details:', {
+          id: template.id,
+          name: template.name,
+          variables: template.variables || [],
+          contentPreview: (template.content || '').substring(0, 50) + '...'
+        });
+
         const fromName = fromNames[emailCount % fromNames.length];
         const subject = emailSubjects[emailCount % emailSubjects.length];
 
@@ -459,7 +485,6 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
 
         const recipientBase64 = toBase64(recipient);
         const capitalizedDomain = domainName ? domainName.charAt(0).toUpperCase() + domainName.slice(1) : '';
-
         // Create a map of all possible placeholder formats
         const placeholders = {
           // Standard format
@@ -521,7 +546,9 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
         for (const placeholder of remainingPlaceholders) {
           const regex = new RegExp(placeholder, 'gi');
           const value = placeholders[placeholder];
-          personalizedContent = personalizedContent.replace(regex, value);
+          if (value) { // Only replace if we have a value
+            personalizedContent = personalizedContent.replace(regex, value);
+          }
         }
 
         // Log a sample of the personalized content
@@ -552,17 +579,20 @@ ipcMain.handle('email:send-batch', async (event, { recipients, templates, smtpCo
 
         // Add a random delay between emails (1-5 seconds)
         const delay = Math.floor(Math.random() * 4000) + 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
 
-        // Send progress update
+        // Send progress update with delay information
         mainWindow.webContents.send('email:progress', {
           current: emailCount,
           total: recipients.length,
           success: true,
           recipient,
           sent: successCount,
-          failed: failureCount
+          failed: failureCount,
+          delayTime: delay / 1000 // Convert to seconds
         });
+
+        // Now wait for the delay
+        await new Promise(resolve => setTimeout(resolve, delay));
 
         // Add a small delay to allow the UI to update
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -636,7 +666,7 @@ ipcMain.handle('template:save', async (event, data) => {
       return { success: false, message: 'Invalid data format' };
     }
 
-    const { name, content } = data;
+    const { name, content, variables } = data;
 
     if (!name || !content) {
       console.error('Missing required fields:', { name, content });
@@ -646,7 +676,7 @@ ipcMain.handle('template:save', async (event, data) => {
     const templates = templateStore.get('templates') || [];
     console.log('Current templates:', templates);
 
-    const newTemplate = { id: Date.now(), name, content };
+    const newTemplate = { id: Date.now(), name, content, variables };
     templates.push(newTemplate);
     templateStore.set('templates', templates);
 
@@ -706,18 +736,36 @@ ipcMain.handle('template:personalize', (event, { template, email }) => {
     if (!email) return { success: false, message: 'No email provided' };
 
     const [username, domain] = email.split('@');
-    const domainName = domain?.split('.')[0] || 'Unknown';
+    let domainName = '';
+    let domainExt = '';
+
+    if (domain) {
+      // Handle domains with or without dots
+      if (domain.includes('.')) {
+        const domainParts = domain.split('.');
+        domainName = domainParts[0];
+        domainExt = domainParts.slice(1).join('.');
+      } else {
+        // For domains without dots (like localhost)
+        domainName = domain;
+      }
+    }
+
     const toBase64 = (str) => Buffer.from(str).toString('base64');
+
+    // Generate random strings
+    const randomShort = randomstring.generate({ length: 5, charset: 'alphabetic' });
+    const randomLong = randomstring.generate({ length: 50, charset: 'alphabetic' });
 
     const personalized = template
       .replace(/GIRLUSER/g, username || '')
-      .replace(/GIRLDOMC/g, domainName.charAt(0).toUpperCase() + domainName.slice(1))
-      .replace(/GIRLdomain/g, domainName)
+      .replace(/GIRLDOMC/g, domainName.toUpperCase() || '')
+      .replace(/GIRLdomain/g, domainName || '')
       .replace(/GIRLDOMAIN/g, domain || '')
       .replace(/TECHGIRLEMAIL/g, email)
       .replace(/TECHGIRLEMAIL64/g, toBase64(email))
-      .replace(/TECHGIRLRND/g, randomstring.generate({ length: 5, charset: 'alphabetic' }))
-      .replace(/TECHGIRLRNDLONG/g, randomstring.generate({ length: 50, charset: 'alphabetic' }));
+      .replace(/TECHGIRLRND/g, randomShort)
+      .replace(/TECHGIRLRNDLONG/g, randomLong);
 
     return { success: true, content: personalized };
   } catch (error) {
@@ -812,6 +860,61 @@ ipcMain.handle('recipients:delete-list', (event, listName) => {
     return { success: true, message: 'Recipient list deleted successfully' };
   } catch (error) {
     console.error('Failed to delete recipient list:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// URL Encoder handler
+ipcMain.handle('url:encode', async (event, url) => {
+  try {
+    if (!url) {
+      return { success: false, message: 'URL is required' };
+    }
+
+    // Use the Python script to encode the URL
+    const { spawn } = require('child_process');
+    const pythonProcess = spawn('python3', [
+      path.join(__dirname, 'url_encoder.py')
+    ]);
+
+    let encodedUrl = '';
+    let errorOutput = '';
+
+    // Send the URL to the Python script
+    pythonProcess.stdin.write(url);
+    pythonProcess.stdin.end();
+
+    // Collect the encoded URL from stdout
+    pythonProcess.stdout.on('data', (data) => {
+      encodedUrl += data.toString();
+    });
+
+    // Collect any error output
+    pythonProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    // Return a promise that resolves when the process completes
+    return new Promise((resolve, reject) => {
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error(`URL encoding failed with code ${code}:`, errorOutput);
+          resolve({
+            success: false,
+            message: `URL encoding failed with code ${code}`,
+            error: errorOutput
+          });
+        } else {
+          resolve({
+            success: true,
+            originalUrl: url,
+            encodedUrl: encodedUrl.trim()
+          });
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Failed to encode URL:', error);
     return { success: false, message: error.message };
   }
 });

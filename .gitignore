@@ -1,4 +1,1 @@
-node_modules/
-client/build/
-dist/
-*.log
+node_modules

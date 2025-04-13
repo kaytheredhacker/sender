@@ -125,65 +125,66 @@ class EmailService {
             const recipient = recipients[i];
             let success = false;
 
-            // Retry mechanism
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    // Rotate SMTP configuration every 100 emails
-                    const smtpConfig = smtpConfigs[smtpIndex % smtpConfigs.length];
-                    if (sentCount > 0 && sentCount % 100 === 0) {
-                        smtpIndex++;
-                    }
-
-                    // Rotate template every 50 emails
+                    // Validate template before using it
                     const template = templates[templateIndex % templates.length];
-                    if (sentCount > 0 && sentCount % 50 === 0) {
-                        templateIndex++;
+                    if (!template || typeof template !== 'string') {
+                        console.error('Invalid template:', template);
+                        throw new Error('Invalid template format');
                     }
 
-                    // Rotate name and subject every 2 successful emails
-                    const name = names[nameIndex % names.length];
-                    const subject = subjects[subjectIndex % subjects.length];
-                    if (sentCount > 0 && sentCount % 2 === 0) {
-                        nameIndex++;
-                        subjectIndex++;
-                    }
+                    // Log template details before personalization
+                    console.log('Using template:', {
+                        index: templateIndex,
+                        content: template.substring(0, 100) + '...' // Log first 100 chars
+                    });
 
-                    // Personalize and send the email
+                    // Personalize and validate the template
                     const personalizedTemplate = this.personalizeTemplate(template, recipient);
+                    if (!personalizedTemplate) {
+                        throw new Error('Template personalization failed');
+                    }
+
                     const result = await this.sendEmail(
                         recipient,
-                        name,
-                        subject,
+                        names[nameIndex % names.length],
+                        subjects[subjectIndex % subjects.length],
                         personalizedTemplate,
                         smtpIndex
                     );
 
-                    if (!result.success) {
-                        throw new Error(result.error || 'Failed to send email');
-                    }
+                    if (result.success) {
+                        success = true;
+                        sentCount++;
 
-                    console.log(`Email sent to ${recipient} using SMTP config ${smtpIndex}`);
-                    success = true;
-                    sentCount++;
-                    break; // Exit retry loop if successful
+                        // Increment name and subject indices after each successful send
+                        nameIndex++;
+                        subjectIndex++;
+
+                        // Rotate template every 5 emails
+                        if (sentCount % 5 === 0 && templates.length > 1) {
+                            templateIndex++;
+                        }
+
+                        // Rotate SMTP every 100 emails
+                        if (sentCount % 100 === 0 && smtpConfigs.length > 1) {
+                            smtpIndex++;
+                        }
+
+                        break;
+                    }
                 } catch (error) {
                     console.error(`Attempt ${attempt} failed for ${recipient}:`, error);
-
                     if (attempt === maxRetries) {
-                        console.error(`Failed to send email to ${recipient} after ${maxRetries} attempts`);
                         failedCount++;
                     }
                 }
             }
 
-            // If the email was successfully sent, apply a randomized delay
-            if (success) {
-                try {
-                    await this.delay(minDelay, maxDelay);
-                } catch (error) {
-                    console.error('Delay error:', error.message);
-                    continue; // Skip to the next email
-                }
+            // Apply delay between sends
+            if (i < recipients.length - 1) {
+                await this.delay(minDelay, maxDelay);
             }
         }
 
@@ -192,8 +193,8 @@ class EmailService {
             sent: sentCount,
             failed: failedCount,
             total: recipients.length,
-            smtpRotations: Math.floor(sentCount / 100),
-            templateRotations: Math.floor(sentCount / 50),
+            smtpRotations: Math.floor(smtpIndex / 100), // Corrected calculation
+            templateRotations: Math.floor(templateIndex / 5), // Corrected calculation
             success_rate: ((sentCount / recipients.length) * 100).toFixed(2) + '%',
             completion_time: new Date().toISOString()
         };

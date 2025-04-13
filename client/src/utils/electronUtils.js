@@ -10,7 +10,18 @@ export const isElectron = () => {
 // Safe wrapper for Electron API calls
 export const callElectronAPI = async (apiMethod, ...args) => {
   if (isElectron() && window.electronAPI && typeof window.electronAPI[apiMethod] === 'function') {
-    return await window.electronAPI[apiMethod](...args);
+    try {
+      console.log(`Calling Electron API: ${apiMethod}`, args);
+      const result = await window.electronAPI[apiMethod](...args);
+      console.log(`Electron API ${apiMethod} result:`, result);
+      return result;
+    } catch (error) {
+      console.error(`Error calling Electron API ${apiMethod}:`, error);
+      return {
+        success: false,
+        message: `Error calling ${apiMethod}: ${error.message}`,
+      };
+    }
   } else {
     console.warn(`Electron API method '${apiMethod}' not available`);
     // Return a mock response for development

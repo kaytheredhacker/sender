@@ -26,16 +26,16 @@ const TemplateEditor = ({ onTemplateChange }) => {
     // Function to process template variables for a specific recipient
     const processTemplateForRecipient = (templateContent, email) => {
         if (!templateContent || !email) return templateContent;
-        
+
         let processedTemplate = templateContent;
-        
+
         // Extract username and domain parts
         const [username, domain] = email.split('@');
-        
+
         // Process domain parts if available
         let domainName = '';
         let domainExt = '';
-        
+
         if (domain) {
             // Handle domains with or without dots
             if (domain.includes('.')) {
@@ -47,15 +47,15 @@ const TemplateEditor = ({ onTemplateChange }) => {
                 domainName = domain;
             }
         }
-        
+
         // Generate random strings
         const randomShort = Math.random().toString(36).substring(2, 7);
-        const randomLong = Array(50).fill(0).map(() => 
+        const randomLong = Array(50).fill(0).map(() =>
             Math.random().toString(36).charAt(2)).join('');
-        
+
         // Base64 encode the email
         const emailBase64 = btoa(email);
-        
+
         // Replace all variables
         processedTemplate = processedTemplate
             .replace(/GIRLUSER/g, username || '')
@@ -66,7 +66,7 @@ const TemplateEditor = ({ onTemplateChange }) => {
             .replace(/TECHGIRLEMAIL64/g, emailBase64)
             .replace(/TECHGIRLRND/g, randomShort)
             .replace(/TECHGIRLRNDLONG/g, randomLong);
-        
+
         return processedTemplate;
     };
 
@@ -115,21 +115,28 @@ const TemplateEditor = ({ onTemplateChange }) => {
             const usedVariables = variables
                 .filter(v => template.includes(v.name))
                 .map(v => v.name);
-                
+
+            console.log('Saving template with variables:', usedVariables);
+
             let result;
             if (isElectron()) {
-                result = await callElectronAPI('saveTemplate', {
+                // Make sure we're passing the data in the correct format
+                const templateData = {
                     name: templateName,
                     content: template,
                     variables: usedVariables // Send variables info to backend
-                });
+                };
+
+                console.log('Saving template with data:', templateData);
+                result = await callElectronAPI('saveTemplate', templateData);
+                console.log('Save template result:', result);
             } else {
                 // Mock successful save for browser development
                 result = {
                     success: true,
-                    template: { 
-                        id: Date.now(), 
-                        name: templateName, 
+                    template: {
+                        id: Date.now(),
+                        name: templateName,
                         content: template,
                         variables: usedVariables
                     }
@@ -137,11 +144,12 @@ const TemplateEditor = ({ onTemplateChange }) => {
             }
 
             if (result.success) {
+                console.log('Template saved successfully:', result.template);
                 // Update local state with new template
                 setSavedTemplates(prev => {
-                    const newTemplates = [...prev, { 
-                        name: templateName, 
-                        content: template, 
+                    const newTemplates = [...prev, {
+                        name: templateName,
+                        content: template,
                         id: result.template?.id || Date.now(),
                         variables: usedVariables
                     }];
@@ -268,8 +276,8 @@ const TemplateEditor = ({ onTemplateChange }) => {
                         </div>
                         <div
                             className="preview-content"
-                            dangerouslySetInnerHTML={{ 
-                                __html: processTemplateForRecipient(template, previewEmail) 
+                            dangerouslySetInnerHTML={{
+                                __html: processTemplateForRecipient(template, previewEmail)
                             }}
                         />
                     </div>
@@ -298,6 +306,10 @@ const TemplateEditor = ({ onTemplateChange }) => {
             </div>
 
             {error && <div className="error-message">{error}</div>}
+
+            <div className="brand-logo-container">
+                <div className="brand-logo">TECH-GIRL-NERD</div>
+            </div>
 
             <div className="saved-templates">
                 <h4>Saved Templates</h4>

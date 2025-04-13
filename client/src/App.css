@@ -48,8 +48,11 @@ body {
 .main-container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 30px;
     position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
 }
 
 .floating-brand {

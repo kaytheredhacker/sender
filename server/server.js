@@ -16,6 +16,7 @@ const { encryptCredentials, decryptCredentials } = require('./utils/encryption')
 
 const smtpRoutes = require('./routes/smtpRoutes');
 const emailRoutes = require('./routes/emailRoutes');
+const urlEncoderRoutes = require('./routes/urlEncoderRoutes');
 
 
 
@@ -35,11 +36,11 @@ app.use(cors({
     origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true 
+    credentials: true
 }));
 
-app.use(express.json()); 
-app.use(express.urlencoded({ extended: true })); 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Routes (Example)
 app.get('/', (req, res) => {
@@ -75,6 +76,7 @@ const smtpUtils = {
 // API Routes - use imported route modules
 app.use('/api/smtp', smtpRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/url-encoder', urlEncoderRoutes);
 app.use(cors());
 
 app.get('/api/smtp/configs', async (req, res) => {

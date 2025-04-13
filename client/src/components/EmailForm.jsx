@@ -100,9 +100,12 @@ const EmailForm = () => {
             setProgress(prev => ({
                 ...prev,
                 status: 'sending',
-                message: `Sending emails... ${data.current}/${data.total} (${Math.round((data.current/data.total)*100)}%)`,
+                message: data.delayTime ?
+                    `Sending emails... ${data.current}/${data.total} - Next email in ${data.delayTime}s` :
+                    `Sending emails... ${data.current}/${data.total}`,
                 current: data.current,
-                total: data.total
+                total: data.total,
+                percentage: Math.round((data.current/data.total)*100)
             }));
         };
 

@@ -1,0 +1,157 @@
+.url-encoder {
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: fadeIn 0.5s ease-out;
+    width: 100%;
+}
+
+.url-encoder h3 {
+    color: #00ff9d;
+    margin-bottom: 20px;
+    font-size: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+}
+
+.encoder-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.encoder-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.encoder-form label {
+    color: #ffffff;
+    font-size: 14px;
+}
+
+.encoder-form input[type="text"] {
+    padding: 12px;
+    background-color: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.encoder-form input[type="text"]:focus {
+    outline: none;
+    border-color: #00ff9d;
+    box-shadow: 0 0 0 2px rgba(0, 255, 157, 0.2);
+}
+
+.encode-button {
+    padding: 12px;
+    background-color: #00ff9d;
+    color: #000000;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.encode-button:hover:not(:disabled) {
+    background-color: #00cc7d;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 255, 157, 0.3);
+}
+
+.encode-button:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.error-message {
+    background-color: rgba(255, 0, 0, 0.1);
+    border: 1px solid #ff0000;
+    color: #ff0000;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    animation: slideIn 0.3s ease-out;
+}
+
+.result-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.result-container textarea {
+    padding: 12px;
+    background-color: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 14px;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.copy-button {
+    padding: 10px;
+    background-color: #845ef7;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.copy-button:hover {
+    background-color: #6741d9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(132, 94, 247, 0.3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .url-encoder {
+        padding: 15px;
+    }
+
+    .encode-button, .copy-button {
+        padding: 10px;
+    }
+}

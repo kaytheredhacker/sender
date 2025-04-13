@@ -81,5 +81,11 @@ contextBridge.exposeInMainWorld('electronAPI', Object.freeze({
   deleteRecipientList: (listName) => {
     console.log('deleteRecipientList called with name:', listName);
     return ipcRenderer.invoke('recipients:delete-list', listName);
+  },
+
+  // URL Encoder functionality
+  encodeUrl: (url) => {
+    console.log('encodeUrl called with url:', url);
+    return ipcRenderer.invoke('url:encode', url);
   }
 }));
